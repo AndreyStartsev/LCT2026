@@ -776,8 +776,9 @@ export const api = {
   ruleTest: (id: string) => request<RuleTest>("GET", `/api/v1/rules/tests/${id}`),
   /** Последние прогоны правила — чтобы вернуться к своему, уйдя со страницы. */
   ruleTests: (code: string) => request<{ tests: RuleTest[] }>("GET", `/api/v1/rules/tests?code=${encodeURIComponent(code)}`),
-  /** Примерное время прогона по объектам: по прошлым прогонам, без них — по числу страниц. */
-  ruleTestEstimate: () => request<{ processes: RuleEstimate[] }>("GET", "/api/v1/rules/tests/estimate"),
+  /** Примерное время прогона по объектам: по числу страниц и скорости последних прогонов стенда. */
+  ruleTestEstimate: () =>
+    request<{ speed: number; recent: number; processes: RuleEstimate[] }>("GET", "/api/v1/rules/tests/estimate"),
   datasetRelease: (comment?: string) =>
     request<DatasetVersion>("POST", "/api/v1/dataset/release", comment ? { comment } : {}),
   /** Отзыв версии (#74): версия остаётся в истории, но в дообучение не берётся. */
@@ -943,8 +944,6 @@ export interface RuleEstimate {
   pages: number;
   trace_s: number;
   variant_s: number;
-  /** по прошлым прогонам на этой проверке, а не по числу страниц */
-  measured: boolean;
 }
 
 /** Пробный прогон правила: трасса или песочница. Ничего на стенде не меняет. */

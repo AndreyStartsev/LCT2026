@@ -170,46 +170,51 @@ const TEST_FULL = {
 };
 
 // Примерное время прогона на проверке. Почти всё уходит на кандидатов всей очереди — их читает любой
-// прогон, — поэтому от числа страниц время зависит сильнее, чем от правила. Замер стенда 28.09 при
-// прогретом кеше: запуск около 1,5 с, трасса 1,5 мс на страницу, вариант 2,5 мс. Был прогон на этой
-// проверке — берётся быстрейший из трёх последних того же рода. Первый прогон после обновления сервиса
-// пересобирает кеш и идёт в разы дольше (Полярная 16: 794 с против 45–75 с), и следующие за ним идут уже
-// быстро: замер дольше расчёта по страницам больше чем втрое оценку не задаёт.
+// прогон, — поэтому время растёт с числом страниц проверки, а от правила зависит мало. Замер стенда 28.09
+// при прогретом кеше и спокойной машине: запуск около 1,5 с, трасса 1,5 мс на страницу, вариант 2,5 мс.
+// Та же проверка идёт и в 5–10 раз дольше: первый прогон после выкладки пересобирает кеш (Полярная 16 —
+// 794 с), а под нагрузкой на машину медленно отвечает смонтированный кеш (Новослободская 28.09 вечером —
+// 40–100 с вместо 7). Поэтому расчёт по страницам умножается на скорость последних прогонов стенда: во
+// сколько раз они шли дольше расчёта — за последний час, по проверкам не меньше MIN_PAGES страниц.
 const START_S = 1.5;
 const PAGE_S = { trace: 0.0015, variant: 0.0025 };
-const COLD = 3;
+const MIN_PAGES = 300;
+const RECENT = 10;
 
 const ESTIMATE = {
   type: "object",
-  required: ["processes"],
+  required: ["speed", "recent", "processes"],
   properties: {
+    speed: { type: "number", description: "во сколько раз последние прогоны шли дольше расчёта по страницам; 1 — без замеров" },
+    recent: { ...count, description: "по скольким прогонам за последний час посчитана скорость" },
     processes: {
       type: "array",
       description: "последняя проверка каждого объекта с протоколом — на них идёт прогон по всем объектам",
       items: {
         type: "object",
-        required: ["process_id", "object_id", "pages", "trace_s", "variant_s", "measured"],
+        required: ["process_id", "object_id", "pages", "trace_s", "variant_s"],
         properties: {
           process_id: { type: "string" },
           object_id: { type: "string" },
           pages: { ...count, description: "страниц в принятых файлах проверки" },
           trace_s: { type: "number", description: "примерное время трассы, секунд" },
           variant_s: { type: "number", description: "примерное время варианта, секунд" },
-          measured: { type: "boolean", description: "оценка по прошлым прогонам на этой проверке, а не по числу страниц" },
         },
       },
     },
   },
 };
 
-/** Оценка и взята ли она из замера: быстрейший из тёплых прогонов, без них — по страницам. */
-function seconds(runs: unknown, pages: number, kind: keyof typeof PAGE_S): [number, boolean] {
-  const model = START_S + pages * PAGE_S[kind];
-  const warm = (Array.isArray(runs) ? runs : [])
-    .map(Number)
-    .filter((s) => Number.isFinite(s) && s > 0 && s <= COLD * model);
-  const got = warm.length ? Math.min(...warm) : model;
-  return [Math.round(got * 10) / 10, warm.length > 0];
+/** Во сколько раз прогоны шли дольше расчёта: по страницам, без времени запуска; 0,5…20. */
+export function runSpeed(runs: { elapsed_s: unknown; pages: unknown; variant: unknown }[]): { speed: number; recent: number } {
+  const used = runs
+    .map((r) => ({ s: Number(r.elapsed_s), pages: Number(r.pages), kind: r.variant ? ("variant" as const) : ("trace" as const) }))
+    .filter((r) => Number.isFinite(r.s) && r.s > 0 && r.pages >= MIN_PAGES)
+    .slice(0, RECENT);
+  if (!used.length) return { speed: 1, recent: 0 };
+  const took = used.reduce((sum, r) => sum + Math.max(0, r.s - START_S), 0);
+  const model = used.reduce((sum, r) => sum + r.pages * PAGE_S[r.kind], 0);
+  return { speed: Math.round(Math.min(20, Math.max(0.5, took / model)) * 10) / 10, recent: used.length };
 }
 
 async function latestView(): Promise<RulesView> {
@@ -384,41 +389,37 @@ export async function rulesRoutes(app: FastifyInstance): Promise<void> {
         summary: "Примерное время пробного прогона по объектам (эксперт)",
         description:
           "По последней проверке каждого объекта с протоколом: сколько примерно займёт трасса и вариант правила. " +
-          "Оценка — по прошлым прогонам на проверке, а без них — по числу страниц. Ожидание очереди в неё не входит.",
+          "Оценка — по числу страниц проверки и скорости прогонов стенда за последний час. Ожидание очереди в неё не входит.",
         security: bearer,
         response: { 200: ESTIMATE, ...errorResponses },
       },
     },
     async () => {
-      const recent = (variant: boolean) => `(
-        select array_agg(x.elapsed_s) from (
-          select r.elapsed_s from rule_test_results r join rule_tests t on t.id = r.test_id
-           where r.process_id = l.id and r.status = 'DONE' and t.variant is ${variant ? "not null" : "null"}
-           order by r.finished_at desc limit 3) x)`;
-      const { rows } = await pool.query(
-        `with l as (
-           select distinct on (p.object_id) p.id, p.object_id from processes p
-            where exists (select 1 from protocols pr where pr.process_id = p.id)
-            order by p.object_id, p.created_at desc)
-         select l.id, l.object_id,
-                (select coalesce(sum(f.pdf_pages), 0) from files f where f.process_id = l.id and f.status = 'ACCEPTED') as pages,
-                ${recent(false)} as trace_runs,
-                ${recent(true)} as variant_runs
-           from l order by l.object_id`,
-      );
+      const pagesOf = (alias: string) =>
+        `(select coalesce(sum(f.pdf_pages), 0) from files f where f.process_id = ${alias} and f.status = 'ACCEPTED')`;
+      const [latest, recent] = await Promise.all([
+        pool.query(
+          `with l as (
+             select distinct on (p.object_id) p.id, p.object_id from processes p
+              where exists (select 1 from protocols pr where pr.process_id = p.id)
+              order by p.object_id, p.created_at desc)
+           select l.id, l.object_id, ${pagesOf("l.id")} as pages from l order by l.object_id`,
+        ),
+        pool.query(
+          `select r.elapsed_s, t.variant is not null as variant, ${pagesOf("r.process_id")} as pages
+             from rule_test_results r join rule_tests t on t.id = r.test_id
+            where r.status = 'DONE' and r.finished_at > now() - interval '1 hour'
+            order by r.finished_at desc limit 50`,
+        ),
+      ]);
+      const { speed, recent: used } = runSpeed(recent.rows);
+      const secs = (pages: number, kind: keyof typeof PAGE_S) => Math.round((START_S + pages * PAGE_S[kind] * speed) * 10) / 10;
       return {
-        processes: rows.map((r) => {
+        speed,
+        recent: used,
+        processes: latest.rows.map((r) => {
           const pages = Number(r.pages) || 0;
-          const [trace, traced] = seconds(r.trace_runs, pages, "trace");
-          const [variant, varied] = seconds(r.variant_runs, pages, "variant");
-          return {
-            process_id: String(r.id),
-            object_id: String(r.object_id),
-            pages,
-            trace_s: trace,
-            variant_s: variant,
-            measured: traced || varied,
-          };
+          return { process_id: String(r.id), object_id: String(r.object_id), pages, trace_s: secs(pages, "trace"), variant_s: secs(pages, "variant") };
         }),
       };
     },

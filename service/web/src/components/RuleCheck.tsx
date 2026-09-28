@@ -57,9 +57,19 @@ const CHANGE_WORD: Record<TestChange["change"], string> = {
 const POLL_MS = 1500;
 // свой прогон правила показывается снова, если вернуться к правилу в течение полусуток
 const RESTORE_MS = 12 * 3600 * 1000;
-const ESTIMATE_HINT =
-  "Оценка — по прошлым прогонам на объекте, а без них — по числу страниц. Ожидание в очереди в неё не входит; " +
-  "первый прогон после обновления сервиса бывает в несколько раз дольше.";
+const ESTIMATE_HINT = "Оценка — по числу страниц объекта и скорости последних прогонов на стенде. Ожидание в очереди в неё не входит.";
+
+function times(n: number): string {
+  const last = n % 10;
+  return last >= 2 && last <= 4 && (n % 100 < 12 || n % 100 > 14) ? "раза" : "раз";
+}
+
+/** Подсказка к оценке: если прогоны сейчас идут дольше обычного, сказать во сколько раз. */
+function estimateHint(speed: number | undefined): string {
+  if (!speed || speed < 1.5) return ESTIMATE_HINT;
+  const n = Math.round(speed);
+  return `${ESTIMATE_HINT} Сейчас прогоны идут дольше обычного примерно в ${n} ${times(n)}.`;
+}
 
 /** «около 8 с», «около 4 мин», «около 1 ч 10 мин». */
 function about(seconds: number | null | undefined): string | null {
@@ -102,11 +112,18 @@ function describeVariant(variant: Record<string, unknown>): string {
   return out.join("; ");
 }
 
+interface Estimates {
+  speed: number;
+  byObject: Map<string, RuleEstimate>;
+}
+
 // Оценка времени одна на страницу правил: берётся раз в минуту и после каждого прогона — прогон её уточняет
-let estimates: { at: number; data: Promise<Map<string, RuleEstimate>> } | null = null;
-function loadEstimates(fresh = false): Promise<Map<string, RuleEstimate>> {
+let estimates: { at: number; data: Promise<Estimates> } | null = null;
+function loadEstimates(fresh = false): Promise<Estimates> {
   if (fresh || !estimates || Date.now() - estimates.at > 60_000) {
-    const data = api.ruleTestEstimate().then((r) => new Map(r.processes.map((p) => [p.object_id, p])));
+    const data = api
+      .ruleTestEstimate()
+      .then((r) => ({ speed: r.speed, byObject: new Map(r.processes.map((p) => [p.object_id, p])) }));
     estimates = { at: Date.now(), data };
     data.catch(() => {
       estimates = null;
@@ -366,7 +383,7 @@ export default function RuleCheck({ item, logic, objects }: Props) {
   const [run, setRun] = useState<RuleTest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [estimate, setEstimate] = useState<Map<string, RuleEstimate> | null>(null);
+  const [estimate, setEstimate] = useState<Estimates | null>(null);
 
   useEffect(() => {
     if (!objectId && ready[0]) setObjectId(ready[0].object_id);
@@ -383,14 +400,19 @@ export default function RuleCheck({ item, logic, objects }: Props) {
   }, []);
 
   // Свой последний прогон правила — снова на экране: уход на другую страницу или к другому правилу
-  // его не теряет, воркер считает его и без открытой страницы
+  // его не теряет, воркер считает его и без открытой страницы. У правила с кодом — только трасса:
+  // прежний прогон песочницы для него показывать незачем
   useEffect(() => {
     let live = true;
     const me = currentLogin();
+    const withVariant = logic.engine !== "code";
     api
       .ruleTests(item.code)
       .then(({ tests }) => {
-        const mine = tests.find((t) => t.created_by === me && Date.now() - Date.parse(t.created_at) < RESTORE_MS);
+        const mine = tests.find(
+          (t) =>
+            t.created_by === me && Date.now() - Date.parse(t.created_at) < RESTORE_MS && (withVariant || !t.variant),
+        );
         return mine ? api.ruleTest(mine.id) : null;
       })
       .then((t) => {
@@ -402,7 +424,7 @@ export default function RuleCheck({ item, logic, objects }: Props) {
     return () => {
       live = false;
     };
-  }, [item.code]);
+  }, [item.code, logic.engine]);
 
   // ход прогона: воркер берёт его после обработки документов и считает по объекту за раз
   useEffect(() => {
@@ -434,17 +456,18 @@ export default function RuleCheck({ item, logic, objects }: Props) {
     Object.keys(logic.values).length +
       (["labels", "exclude", "features"] as const).filter((k) => logic.editable.includes(k)).length >
     0;
-  const oneTrace = about(estimate?.get(objectId)?.trace_s);
-  const oneVariant = about(estimate?.get(objectId)?.variant_s);
+  const oneTrace = about(estimate?.byObject.get(objectId)?.trace_s);
+  const oneVariant = about(estimate?.byObject.get(objectId)?.variant_s);
   const allVariant = estimate
-    ? about(ready.reduce((sum, o) => sum + (estimate.get(o.object_id)?.variant_s ?? 0), 0))
+    ? about(ready.reduce((sum, o) => sum + (estimate.byObject.get(o.object_id)?.variant_s ?? 0), 0))
     : null;
+  const hint = estimateHint(estimate?.speed);
   const remaining = (() => {
     if (!run || !estimate || run.status !== "RUNNING" || !run.results) return null;
     const key = run.variant ? "variant_s" : "trace_s";
     const left = run.results
       .filter((r) => r.status === "QUEUED")
-      .reduce((sum, r) => sum + (estimate.get(r.object_id ?? "")?.[key] ?? 0), 0);
+      .reduce((sum, r) => sum + (estimate.byObject.get(r.object_id ?? "")?.[key] ?? 0), 0);
     return left > 0 ? about(left) : null;
   })();
 
@@ -500,7 +523,7 @@ export default function RuleCheck({ item, logic, objects }: Props) {
             Как правило решило
           </button>
           {oneTrace && (
-            <span className="small muted rules-eta" title={ESTIMATE_HINT}>
+            <span className="small muted rules-eta" title={hint}>
               {oneTrace}
             </span>
           )}
@@ -559,11 +582,11 @@ export default function RuleCheck({ item, logic, objects }: Props) {
                 </p>
               )}
               <div className="rules-check-row wide" role="radiogroup" aria-label="На каких объектах прогнать">
-                <label title={ESTIMATE_HINT}>
+                <label title={hint}>
                   <input type="radio" checked={scope === "one"} onChange={() => setScope("one")} /> выбранный объект — с трассой
                   {oneVariant && <span className="small muted"> · {oneVariant}</span>}
                 </label>
-                <label title={ESTIMATE_HINT}>
+                <label title={hint}>
                   <input type="radio" checked={scope === "all"} onChange={() => setScope("all")} /> все объекты стенда ({ready.length})
                   {allVariant && <span className="small muted"> · {allVariant}</span>}
                 </label>

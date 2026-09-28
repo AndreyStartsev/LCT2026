@@ -634,14 +634,22 @@ def _foreign_context(rule, flat, start, end, doc):
     return any(re.search(p, around, re.I) for p in ctx["patterns"])
 
 
-def extract(rule, text, classes=None, doc=None, page_no=None):
-    """Кандидаты значения показателя на одной странице."""
+def extract(rule, text, classes=None, doc=None, page_no=None, prev_text=None):
+    """Кандидаты значения показателя на одной странице. `prev_text` — текст предыдущей страницы."""
     if rule.get("kind") in ROOM_KINDS:
         return []          # сравнение по помещениям читает таблицы листов само, не по тексту страницы (#37)
+    if rule.get("kind") in ELEMENT_KINDS:
+        # Том наружных инженерных сетей (КР.НС, его расчёты КР.НС.РР, папка НИС) — сооружения вне здания.
+        # Стены канала теплосети и камер, плиты колодцев становились стенами и плитами здания, крепление
+        # траншей — обвязочным поясом и распорками котлована, плиты канала — толщиной перекрытий
+        if elements.network_volume((doc or {}).get("relative_path")):
+            return []
     if rule.get("kind") == "element_class":
         flat = tep.flatten(text)
         as_built = (doc or {}).get("stage") == "ID"
-        found = elements.concrete_classes(flat, (doc or {}).get("relative_path", ""), as_built=as_built)
+        # вторая страница акта освидетельствования: работы акта — на предыдущей (Р-148)
+        found = elements.concrete_classes(flat, (doc or {}).get("relative_path", ""), as_built=as_built,
+                                          prev=tep.flatten(prev_text) if prev_text else None)
         if as_built:
             # протокол испытаний бетона читается ещё и построчно: конструкция, отметка и класс
             # в одной строке таблицы, слова «бетон» при классе нет (#62). Общий разбор при этом
@@ -1272,14 +1280,17 @@ def _extract_document(doc, pages, active, rules):
     изменения документа.
     """
     out = []
+    prev = None                  # (номер, текст) предыдущей страницы
     for page_no, text, text_source in pages:
+        before = prev[1] if prev and prev[0] == page_no - 1 else None
+        prev = (page_no, text)
         if not text or len(text) < MIN_PAGE_TEXT:
             continue
         by_code = {}
         for code, rule in active.items():
             cls = rules["classes"].get(rule.get("class")) if rule.get("class") else None
             got = []
-            for c in extract(rule, text, cls, doc, page_no):
+            for c in extract(rule, text, cls, doc, page_no, before):
                 # количество дробным не бывает: «6,71» — это литры, а не места
                 if rule.get("kind") == "count" and isinstance(c["value"], float) \
                         and not c["value"].is_integer():
@@ -1309,7 +1320,7 @@ def kind_digests():
     if _KIND_DIGESTS is None:
         from pipeline import fingerprint
         _KIND_DIGESTS = fingerprint.kind_digests("matrix_rules", "extract", ("_extract_document",),
-                                                 {"ROOM_KINDS": ROOM_KINDS})
+                                                 {"ROOM_KINDS": ROOM_KINDS, "ELEMENT_KINDS": ELEMENT_KINDS})
     return _KIND_DIGESTS
 
 
@@ -2623,6 +2634,10 @@ def _plural(value, forms):
 
 # правила, которые сверяют стадии по помещениям и установкам: pipeline/room_compare.py, задача #37
 ROOM_KINDS = {"room_systems", "vent_units"}
+# правила по элементам здания: класс бетона, марка стали, класс арматуры, толщина плит, объём бетона
+# (KR-055…KR-059, KR-067). Том наружных инженерных сетей они не читают (`elements.network_volume`)
+ELEMENT_KINDS = {"element_class", "element_steel_grade", "element_rebar_class", "element_thickness",
+                 "material_takeoff"}
 KEYED_KINDS = {"switchboard_breakers", "switchboard_cables", "riser_diameters", "booster_pumps", "layer_stack",
                "switchboard_fire_cables", "smoke_fans", "mgn_toilet_area", "fire_barrier_limits", "sewer_outlets",
                "outdoor_fire_water"}

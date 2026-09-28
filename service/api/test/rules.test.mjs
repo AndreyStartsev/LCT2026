@@ -17,6 +17,7 @@ const NOT_READY = "33333333-3333-4333-8333-333333333333";
 let testRow = null;
 let resultRows = [];
 let estimateRows = [];
+let recentRows = [];
 let queuedAhead = 0;
 const rows = (list) => ({ rows: list, rowCount: list.length });
 const realDb = await import("../dist/db.js");
@@ -27,7 +28,8 @@ mock.module("../dist/db.js", {
       async query(sql, params) {
         queries.push({ sql, params });
         if (/from rule_snapshots/.test(sql)) return rows(snapshotRow ? [snapshotRow] : []);
-        if (/as variant_runs/.test(sql)) return rows(estimateRows);
+        if (/interval '1 hour'/.test(sql)) return rows(recentRows);
+        if (/with l as/.test(sql)) return rows(estimateRows);
         if (/as ahead/.test(sql)) return rows([{ ahead: queuedAhead }]);
         if (/select distinct on \(p\.object_id\)/.test(sql)) return rows(READY.map((id) => ({ id })));
         if (/from processes p where p\.id = any/.test(sql)) return rows(params[0].filter((id) => READY.includes(id)).map((id) => ({ id })));
@@ -56,6 +58,7 @@ mock.module("../dist/queue.js", {
 
 const { buildApp } = await import("../dist/app.js");
 const { buildRulesView, plainNote, variantProblems } = await import("../dist/rules.js");
+const { runSpeed } = await import("../dist/routes/rules.js");
 
 // Снимок в том виде, в каком его кладёт воркер (service/worker/rules_snapshot.py, формат 1)
 const BODY = {
@@ -386,30 +389,52 @@ test("вариант правила: меняются только разреш�
   assert.deepEqual(variantProblems(undefined, code), [], "трасса правила с кодом — без варианта — разрешена");
 });
 
-test("примерное время прогона: по тёплым прогонам на проверке, без них — по страницам", async () => {
+test("примерное время прогона: по страницам проверки и скорости последних прогонов стенда", async () => {
   const app = await buildApp();
   await app.ready();
   const as = (role) => ({ authorization: `Bearer ${app.jwt.sign({ sub: role, role })}` });
   estimateRows = [
-    { id: READY[0], object_id: "OBJ-1", pages: "4087", trace_runs: null, variant_runs: null },
-    // трасса: быстрейший из последних; вариант: единственный замер — пересборка кеша после выкладки (794 с)
-    { id: READY[1], object_id: "OBJ-2", pages: 28786, trace_runs: [30, 44.5, "41.2"], variant_runs: [793.8] },
+    { id: READY[0], object_id: "OBJ-1", pages: "4087" },
+    { id: READY[1], object_id: "OBJ-2", pages: 28786 },
   ];
+  const estimate = () => app.inject({ method: "GET", url: "/api/v1/rules/tests/estimate", headers: as("expert") });
   try {
-    const got = await app.inject({ method: "GET", url: "/api/v1/rules/tests/estimate", headers: as("expert") });
+    recentRows = [];
+    let got = await estimate();
     assert.equal(got.statusCode, 200, got.body);
-    assert.deepEqual(got.json().processes, [
-      { process_id: READY[0], object_id: "OBJ-1", pages: 4087, trace_s: 7.6, variant_s: 11.7, measured: false },
-      { process_id: READY[1], object_id: "OBJ-2", pages: 28786, trace_s: 30, variant_s: 73.5, measured: true },
-    ]);
-    const sql = queries.at(-1).sql;
-    assert.match(sql, /limit 3/, "по трём последним прогонам того же рода");
+    assert.deepEqual(got.json(), {
+      speed: 1,
+      recent: 0,
+      processes: [
+        { process_id: READY[0], object_id: "OBJ-1", pages: 4087, trace_s: 7.6, variant_s: 11.7 },
+        { process_id: READY[1], object_id: "OBJ-2", pages: 28786, trace_s: 44.7, variant_s: 73.5 },
+      ],
+    }, "без прогонов за час — по страницам, замер спокойной машины");
+    // под нагрузкой на машину: трасса 40,3 с и вариант 47,3 с на 4087 страницах; малая проверка скорость не задаёт
+    recentRows = [
+      { elapsed_s: 40.3, variant: false, pages: "4087" },
+      { elapsed_s: 47.3, variant: true, pages: 4087 },
+      { elapsed_s: 1.4, variant: true, pages: 27 },
+    ];
+    got = await estimate();
+    assert.equal(got.json().speed, 5.2);
+    assert.equal(got.json().recent, 2);
+    assert.deepEqual(got.json().processes.map((p) => [p.trace_s, p.variant_s]), [[33.4, 54.6], [226, 375.7]]);
     for (const role of ["inspector", "admin"]) {
       assert.equal((await app.inject({ method: "GET", url: "/api/v1/rules/tests/estimate", headers: as(role) })).statusCode, 403);
     }
   } finally {
     await app.close();
   }
+});
+
+test("скорость прогонов: пересборка кеша после выкладки видна, крайности обрезаны", () => {
+  assert.deepEqual(runSpeed([]), { speed: 1, recent: 0 });
+  assert.deepEqual(runSpeed([{ elapsed_s: 793.8, variant: true, pages: 28786 }]), { speed: 11, recent: 1 });
+  assert.deepEqual(runSpeed([{ elapsed_s: 100000, variant: false, pages: 1000 }]), { speed: 20, recent: 1 });
+  assert.deepEqual(runSpeed([{ elapsed_s: 1.6, variant: false, pages: 4000 }]), { speed: 0.5, recent: 1 });
+  const many = Array.from({ length: 14 }, () => ({ elapsed_s: 7.6, variant: false, pages: 4087 }));
+  assert.equal(runSpeed(many).recent, 10, "только последние десять");
 });
 
 test("пробный прогон: ставится в очередь, закрыт для остальных ролей, неверное — 422", async () => {
