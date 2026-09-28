@@ -1,0 +1,39 @@
+# Пороги из ТЗ, раздел 13: загрузка процессора больше 80 %, время ответа больше 500 мс.
+# Доставка уведомлений (почта, Telegram) настраивается в Alertmanager контура эксплуатации.
+groups:
+  - name: inspector
+    rules:
+      - alert: ApiCpuHigh
+        expr: rate(inspector_api_process_cpu_seconds_total[5m]) > 0.8
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "API загружает процессор больше чем на 80 %"
+      - alert: ApiSlowResponses
+        expr: histogram_quantile(0.95, sum by (le) (rate(inspector_http_request_duration_seconds_bucket{route!~".*upload|.*report.pdf"}[5m]))) > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "95-й процентиль времени ответа API больше 500 мс"
+      - alert: ApiErrors5xx
+        expr: increase(inspector_http_errors_5xx_total[5m]) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: "API отвечает ошибками 5xx"
+      - alert: QueueBacklog
+        expr: sum(inspector_queue_messages) > 20
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "В очередях обработки больше 20 сообщений дольше 10 минут"
+      - alert: IaisSyncPending
+        expr: inspector_iais_sync{status="PENDING_SYNC"} > 0
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "Финализированные протоколы не переданы в ИАИС «РиН» дольше 30 минут"
+      - alert: WorkerSilent
+        expr: time() - inspector_worker_resource{kind="heartbeat_unixtime"} > 6 * 3600 and sum(inspector_queue_messages) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "В очереди есть задания, а воркер давно не завершал шагов"

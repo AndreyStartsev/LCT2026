@@ -1,0 +1,42 @@
+# Надстройка для облачного стенда: тот же docker-compose.yml плюс TLS и автозапуск.
+#
+#   cd /opt/inspector
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml --profile monitoring up -d --build
+#
+# Порты сервисов в основном файле открыты только на самой машине; наружу смотрит Caddy.
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN:?задайте домен в .env}
+      DEMO_ACME_EMAIL: ${DEMO_ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - web
+
+  postgres: { restart: unless-stopped }
+  redis:    { restart: unless-stopped }
+  rabbitmq: { restart: unless-stopped }
+  minio:    { restart: unless-stopped }
+  api:      { restart: unless-stopped }
+  worker:   { restart: unless-stopped }
+  iais:     { restart: unless-stopped }
+  web:      { restart: unless-stopped }
+
+  grafana:
+    restart: unless-stopped
+    environment:
+      GF_SERVER_ROOT_URL: https://grafana.${DEMO_DOMAIN}
+  prometheus:
+    restart: unless-stopped
+
+volumes:
+  caddydata:
+  caddyconfig:

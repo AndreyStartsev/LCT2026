@@ -1,0 +1,26 @@
+# Конвейер и проверки: pipeline/, tools/, bench/, tests/, scoring/.
+#
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip install -r requirements.txt
+#   python -m pipeline.cli objects
+#
+# Чтение PDF — PyMuPDF; схему файла сдачи проверяет jsonschema (без него проверяется
+# только структура). Больше конвейеру ничего не нужно: DOCX и XLSX пока не читаются (#42).
+pymupdf>=1.26,<2
+jsonschema>=4.23,<5
+# Обозначения систем на листах без текстового слоя дочитываются по форме глифов-штрихов (#48):
+# сходство растров считает numpy. Без него таблицы читаются одним Tesseract.
+numpy>=1.26,<3
+# Эмбеддинги для classify() (#72): опционально для локальной разработки.
+# В контейнере ставятся через service/worker/requirements.txt.
+# Без них classify() работает на стеммах (менее точно, но не падает).
+# onnxruntime>=1.19,<2
+# tokenizers>=0.21,<1
+
+# Распознавание сканов и углов листов вызывает Tesseract как внешнюю программу.
+# Ставится отдельно, путь при необходимости задаётся переменной TESSERACT_CMD:
+#   macOS:  brew install tesseract tesseract-lang
+#   Debian: apt install tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng
+# В образе воркера версия закреплена, см. service/worker/Dockerfile.
+#
+# Сервису нужны ещё очередь, база, хранилище и кеш: service/worker/requirements.txt.

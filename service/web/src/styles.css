@@ -1,0 +1,3719 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Инспектор ИИ — интерфейс по макету docs/design/inspector-screen.html
+
+   Визуальный язык: карандашный набросок по чертёжной бумаге. Изображение
+   чёрно-серо-белое; цвет заливкой несут только три кнопки решения, потому что
+   решение — единственное необратимое действие инспектора. Отсутствие элемента
+   показывается штриховкой, место расхождения — облаком изменений, как на чертеже.
+
+   Компоновка рассчитана на монитор: лист занимает высоту экрана целиком,
+   прокручиваются колонки, а не страница.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --paper: #f8f8f6;
+  --paper-2: #fdfdfc;
+  --graphite: #17181a;
+  --pencil: #46484b;
+  --pale: #707275;
+  --rule: #cdcecb;
+  --tint: #ececea;
+
+  /* Единственный цвет на листе — три карандаша решения, заливкой. */
+  --confirm: #1d7a3e;
+  --confirm-deep: #145c2e;
+  --reject: #b0241c;
+  --reject-deep: #8a1b14;
+  --clarify: #8a5a0d;
+  --clarify-deep: #6b4508;
+  --on-color: #fdfdfc;
+  /* Слова инспектора — его рука: синяя ручка поверх печатного листа. */
+  --ink: #1d3f8f;
+
+  --sans: "PT Sans", system-ui, sans-serif;
+  --narrow: "PT Sans Narrow", "PT Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --hand: "Caveat", "PT Sans", cursive;
+
+  --hatch: repeating-linear-gradient(45deg, var(--rule) 0 1px, transparent 1px 7px);
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--paper);
+  /* Разграфка листа: миллиметровка 8 px и сантиметровая сетка 40 px. */
+  background-image:
+    linear-gradient(rgba(23, 24, 26, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 24, 26, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(23, 24, 26, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 24, 26, 0.022) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+  color: var(--graphite);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--graphite);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.small {
+  font-size: 11px;
+}
+.muted {
+  color: var(--pale);
+}
+.hatched {
+  background-image: var(--hatch);
+}
+
+.app {
+  display: flex;
+  align-items: stretch;
+  min-height: 100%;
+}
+
+/* ── Рельс разделов ─────────────────────────────────────────────────── */
+.rail {
+  flex: 0 0 56px;
+  border-right: 1.5px solid var(--graphite);
+  background: var(--paper-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-block: 12px;
+}
+.rail-mark {
+  margin-bottom: 8px;
+  color: var(--graphite);
+}
+.rail-mark svg {
+  display: block;
+}
+.rail-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--pencil);
+  cursor: pointer;
+}
+.rail-btn:hover:not(:disabled) {
+  border-color: var(--rule);
+}
+.rail-btn[aria-current="true"] {
+  border-color: var(--graphite);
+  background: var(--tint);
+  color: var(--graphite);
+}
+.rail-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.rail-user {
+  margin-top: auto;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding-block: 6px;
+  border-top: 1px solid var(--rule);
+  width: 38px;
+}
+.rail-initial {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--graphite);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 12px;
+}
+.rail-role {
+  font-family: var(--narrow);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+
+/* ── Лист ─────────────────────────────────────────────────────────── */
+.sheet {
+  flex: 1;
+  min-width: 0;
+  padding-block: 12px;
+  padding-inline: 14px;
+  display: flex;
+}
+.frame {
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--graphite);
+  box-shadow: inset 0 0 0 1px var(--paper-2), inset 0 0 0 5px var(--rule);
+  background: rgba(253, 253, 252, 0.8);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Шапка листа ──────────────────────────────────────────────────── */
+.sheet-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px 22px;
+  flex-wrap: wrap;
+  border-bottom: 1.5px solid var(--graphite);
+  padding-bottom: 8px;
+}
+h1 {
+  margin: 0;
+  font-family: var(--narrow);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.sub {
+  font-family: var(--narrow);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+.head-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 8px 22px;
+  flex-wrap: wrap;
+}
+.head-cell {
+  min-width: 0;
+  max-width: 320px;
+}
+.head-cell .k,
+.field .k,
+.field > span:first-child {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pale);
+  display: block;
+}
+.head-warn .v {
+  color: var(--reject);
+}
+/* Стадия загружена частично — пунктиром, как спорная цифра в свёрнутых блоках; не загружена — бледно */
+.head-part {
+  border-bottom: 1px dashed var(--pencil);
+}
+.head-missing {
+  color: var(--pale);
+}
+.head-cell .v {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Шапка экрана проверки — по колонкам рабочей области: заголовок над колонкой протокола,
+   данные объекта — с начала средней колонки (над карточкой находки), значки справа.
+   Ширина первой колонки и зазор — те же, что у .work. Данные переносятся внутри своей
+   колонки, значки на вторую строку не уезжают. */
+.verify-head {
+  display: grid;
+  grid-template-columns: 274px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: end;
+}
+/* Данные — одной строкой до значков: свободное место делится между графами поровну,
+   а когда тесно, первым укорачивается название объекта (целиком — в подсказке). */
+.verify-head .head-meta {
+  margin-left: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 20px;
+}
+/* исходная ширина названия мала: строка переносится только когда и 140 px на название
+   не остаётся, а свободное место название забирает себе (до 380 px) */
+.verify-head .head-object {
+  flex: 1 1 140px;
+  min-width: 140px;
+  max-width: 380px;
+}
+/* между последней графой и значками — заметный просвет, чтобы значки не читались графой */
+.verify-head .head-actions {
+  flex-wrap: nowrap;
+  margin-left: 28px;
+}
+.head-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  /* кнопок стало больше (#74): когда строка шапки не вмещает их, они переносятся,
+     и прижиматься должны по-прежнему к правому краю, а не уезжать влево */
+  margin-left: auto;
+}
+
+/* ── Кнопки ───────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+  font-family: var(--narrow);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  background: var(--tint);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--graphite);
+  color: var(--paper-2);
+}
+/* Кнопка-значок шапки: название — в подсказке и в aria-label */
+.btn-icon {
+  width: 36px;
+  height: 34px;
+  padding: 0;
+}
+.btn-icon[aria-pressed="true"] {
+  background: var(--tint);
+  box-shadow: inset 0 -3px 0 var(--graphite);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--pencil);
+}
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--pencil);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.alert {
+  border: 1.5px solid var(--graphite);
+  border-left-width: 5px;
+  padding: 7px 11px;
+  background: var(--paper-2);
+}
+.note-line {
+  border-left: 3px solid var(--rule);
+  padding: 4px 10px;
+  color: var(--pencil);
+}
+/* Лист доказательства изменён между редакциями (#81): строка под его страницами */
+.rev-hint {
+  font-size: 12.5px;
+  margin-top: -6px;
+}
+.empty-state {
+  padding: 16px 12px;
+  color: var(--pale);
+  font-style: italic;
+}
+
+/* ── Панели ───────────────────────────────────────────────────────── */
+.pane {
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pane.grow {
+  flex: 1;
+}
+.pane-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--graphite);
+  background: var(--tint);
+  flex: 0 0 auto;
+}
+.pane-head h2 {
+  margin: 0;
+  font-family: var(--narrow);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.pane-head .count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pencil);
+}
+
+/* Листание записей: крупные стрелки у счётчика, то же действие, что у клавиш ↑ ↓ и K J.
+   Мышью инспектор листает кандидатов, гипотезы и отклонённые, не возвращаясь в список. */
+.step-nav {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.step-nav .count {
+  margin-left: 0;
+  min-width: 58px;
+  text-align: center;
+}
+/* Сопоставление листов во весь экран — в шапке карточки перед стрелками, в той же рамке */
+.head-compare {
+  display: flex;
+  align-self: center;
+  margin-left: auto;
+}
+.head-compare + .step-nav {
+  margin-left: 10px;
+}
+.step-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 19px;
+  line-height: 1;
+  color: var(--graphite);
+  background: var(--paper-2);
+  border: 1px solid var(--pencil);
+  cursor: pointer;
+}
+.step-btn:hover:not(:disabled) {
+  background: var(--tint);
+}
+.step-btn:disabled {
+  color: var(--rule);
+  border-color: var(--rule);
+  cursor: default;
+}
+
+/* ── Рабочее поле: протокол · карточка · страницы ─────────────────── */
+.work {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 274px minmax(340px, 1fr) minmax(348px, 440px);
+  gap: 12px;
+  align-items: stretch;
+}
+/* Реестр файлов и прочитанный текст занимают и правую треть: страницы нужны только
+   карточке находки, а пустая заштрихованная плашка просто отнимала ширину (#74). */
+.work.work-two {
+  grid-template-columns: 274px minmax(340px, 1fr);
+}
+/* Задания в реестре объектов: что обрабатывается прямо сейчас. */
+.pane.jobs {
+  flex: 0 0 auto;
+}
+/* Промежуток между заданиями даёт gap у .card-body; здесь только линия-разделитель. */
+.job + .job {
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+.job-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.job-top:not(:last-child) {
+  margin-bottom: 6px;
+}
+.job-when {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.job-top .tag {
+  white-space: nowrap;
+}
+/* незаконченная загрузка на экране проверки: что сделать — двумя кнопками под текстом */
+.receiving-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.reupload-solo {
+  flex: 0 0 auto;
+}
+.job-actions {
+  display: inline-flex;
+  gap: 12px;
+}
+.tag.tag-run {
+  border-color: var(--graphite);
+  background: var(--tint);
+}
+.tag.tag-fail {
+  border-color: var(--reject);
+  color: var(--reject-deep);
+}
+.job-name {
+  font-weight: 600;
+}
+
+/* Подпись под таблицей реестра: тем же серым, что пояснения, но во всю ширину блока. */
+.foot-note {
+  padding: 4px 0;
+  color: var(--pencil);
+}
+
+/* Строка с пояснением и действием: текст занимает ширину, действие прижато к правому краю
+   и не переносится по словам (идущая обработка на экране проверки, повторный разбор в реестре). */
+.job-line {
+  display: flex;
+  align-items: center;
+  gap: 10px 16px;
+}
+.job-line > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.job-line .link,
+.job-line .tip-wrap {
+  margin-left: auto;
+}
+.job-line .link,
+.job-line .btn {
+  white-space: nowrap;
+}
+.work-locked .card-foot,
+.work-locked .list {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.col {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Левая колонка протокола (#74, п. 3.1). Блоки «Комплектность» и «Полнота обработки»
+   не сжимаются, и при нехватке высоты — раскрыли блок или уменьшили окно — панель
+   протокола ужималась до нуля: строки её навигации вылезали за панель и уходили под
+   следующий блок, читалось это как наложение текста. Теперь у панели протокола есть
+   читаемый минимум, а не поместившееся прокручивается всей колонкой. */
+.protocol-col {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.protocol-col > .pane.grow {
+  flex: 1 1 auto;
+  min-height: 248px;
+}
+
+/* Левая колонка: пять таблиц протокола */
+.protocol-nav {
+  border-bottom: 1px solid var(--rule);
+  flex: 0 0 auto;
+}
+.pnav {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 10px;
+  text-align: left;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: none;
+  font-size: 12.5px;
+  color: var(--pencil);
+  cursor: pointer;
+}
+.pnav:hover {
+  background: var(--tint);
+}
+.pnav[aria-current="true"] {
+  border-left-color: var(--graphite);
+  background: var(--tint);
+  color: var(--graphite);
+  font-weight: 700;
+}
+.pnav .n {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pale);
+}
+.pnav .c {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-left: 3px solid transparent;
+  background: none;
+  padding: 7px 10px 8px;
+  cursor: pointer;
+}
+.row:hover {
+  background: var(--tint);
+}
+.row[aria-current="true"] {
+  border-left-color: var(--graphite);
+  background: var(--tint);
+}
+.row-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 7px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--pale);
+}
+.row-title {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+.room {
+  font-family: var(--mono);
+  font-weight: 600;
+  border: 1px solid var(--graphite);
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--graphite);
+  margin-right: 4px;
+}
+.crit {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.row-top .crit {
+  margin-left: auto;
+}
+.crit.high {
+  border-bottom: 2px solid var(--graphite);
+  color: var(--graphite);
+}
+.crit.mid {
+  border-bottom: 1px dashed var(--pencil);
+  color: var(--pencil);
+}
+/* Записи на уточнении в таблице 2 не зачёркиваются — к ним ещё вернутся, — а стоят под своим
+   подзаголовком (разбор интерфейса, п. 10) */
+.list-sub {
+  padding: 5px 10px 4px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  font-family: var(--narrow);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+/* Решение принято по прежним значениям: после дозагрузки они изменились (п. 9) */
+.row-stale {
+  padding: 0 5px;
+  border: 1px solid var(--clarify);
+  font-family: var(--narrow);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--clarify-deep);
+  background: var(--paper-2);
+}
+.revisit-link {
+  margin-left: auto;
+  color: var(--clarify-deep);
+  font-weight: 700;
+}
+.verdict {
+  font-family: var(--hand);
+  font-size: 17px;
+  line-height: 1;
+  margin-left: 4px;
+}
+.verdict.v-confirm {
+  color: var(--confirm-deep);
+}
+.verdict.v-reject {
+  color: var(--reject-deep);
+}
+.verdict.v-clarify {
+  color: var(--clarify-deep);
+}
+
+/* Мини-пометки записи (#80): уверенность — столбиками карандашом, решение специалиста —
+   человеком со знаком в цвете решения. Смысл и причины — в подсказке по наведению. */
+.mark {
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+.mark-conf rect {
+  stroke-width: 1.2;
+}
+.mark-conf rect.on {
+  fill: var(--pencil);
+  stroke: var(--pencil);
+}
+.mark-conf rect.off {
+  fill: none;
+  stroke: var(--rule);
+}
+.mark-conf.conf-low rect.on {
+  fill: var(--graphite);
+  stroke: var(--graphite);
+}
+.mark-spec {
+  color: var(--pencil);
+}
+.mark-spec.s-confirm {
+  color: var(--confirm-deep);
+}
+.mark-spec.s-clarify {
+  color: var(--clarify-deep);
+}
+.mark-spec.s-reject {
+  color: var(--reject-deep);
+}
+
+/* Подсказка по наведению (#74): тёмная плашка поверх листа, живёт полсекунды спустя. */
+.tip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.tip-block {
+  display: block;
+}
+/* Подсказка рисуется поверх страницы и считает своё место сама (Tip.tsx): при
+   позиционировании внутри строки её обрезала любая прокручиваемая колонка. */
+.tip {
+  position: fixed;
+  z-index: 40;
+  width: max-content;
+  max-width: 300px;
+  /* строки подсказки — с новой строки (обоснования уверенности в карточке) */
+  white-space: pre-line;
+  padding: 7px 10px;
+  background: var(--graphite);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  box-shadow: 0 2px 10px rgba(23, 24, 26, 0.22);
+  pointer-events: none;
+}
+/* Действия в строке таблицы: кнопка не должна открывать запись при щелчке. */
+.row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.small-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.btn.disabled,
+.btn[aria-disabled="true"] {
+  color: var(--pale);
+  border-color: var(--rule);
+  cursor: default;
+}
+.btn-danger {
+  border-color: var(--reject);
+  color: var(--reject-deep);
+}
+.btn-danger:hover {
+  background: var(--reject);
+  color: var(--on-color);
+}
+/* Подтверждение необратимого действия: лист поверх экрана, как просмотр страницы.
+   Селектор с двумя классами намеренно: .viewer ниже по файлу растягивает окно на весь
+   экран (inset: 0), и одиночный .confirm проигрывал бы ему по порядку. */
+.viewer.confirm {
+  inset: auto;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 92vw);
+  height: auto;
+  box-shadow: 0 8px 40px rgba(23, 24, 26, 0.25);
+}
+.confirm .alert {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.viewer.confirm:focus {
+  outline: none;
+}
+.confirm .finalize-sum {
+  margin: 4px 0 6px;
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+/* подложка окна подтверждения: экран под окном виден, но щёлкнуть в него нельзя */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  background: rgba(23, 24, 26, 0.18);
+}
+.confirm .card-body p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.withdraw-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.withdraw-form input {
+  font-size: 12px;
+  padding: 3px 7px;
+  min-width: 200px;
+}
+/* Экран, доступный только администратору: значок виден, но погашен (#74). */
+.rail-btn.off {
+  opacity: 0.45;
+}
+
+/* Пояснение для тех, кто видит экран впервые (#74): раскрыто по умолчанию, сворачивается. */
+.explain {
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  margin: 10px 0 0;
+}
+.explain > summary {
+  cursor: pointer;
+  padding: 7px 11px;
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.explain-body {
+  padding: 0 11px 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(34ch, 1fr));
+  gap: 2px 26px;
+  align-items: start;
+}
+.explain-body p {
+  margin: 0 0 9px;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 62ch;
+}
+
+/* Статусы комплектности — отдельным блоком, не в кандидатах */
+.statuses {
+  flex: 0 0 auto;
+}
+
+/* Комплектность и готовность свёрнуты по умолчанию: раскрытыми они занимали весь
+   левый столбец, и список записей протокола не был виден. В свёрнутом виде блок
+   держит суть одной строкой, а спорную цифру отмечает пунктиром. */
+.fold .pane-head {
+  padding: 0 10px 0 0;
+  align-items: center;
+}
+.fold-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.fold-arrow {
+  font-size: 11px;
+  color: var(--pale);
+  transition: transform 0.12s ease;
+}
+.fold.open .fold-arrow {
+  transform: rotate(90deg);
+}
+/* Длинный заголовок переносится по словам и в свёрнутом, и в раскрытом блоке: при nowrap
+   «Полнота обработки документации» не помещалась в колонку — выталкивала ссылку «файлы»
+   за правый край панели (#74), а в свёрнутом виде наезжала на сводку «в норме». */
+.fold .pane-head h2 {
+  white-space: normal;
+}
+.fold-toggle {
+  min-width: 0;
+  flex: 0 1 auto;
+  text-align: left;
+}
+.fold .pane-head .link {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.fold-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+.fold-digest {
+  flex: 0 0 auto;
+  max-width: 50%;
+  margin-left: auto;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fold-digest.attention {
+  color: var(--graphite);
+  border-bottom: 1px dashed var(--pencil);
+}
+.status-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 5px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+}
+.status-row:last-child {
+  border-bottom: 0;
+}
+.tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  border: 1px solid var(--pencil);
+  padding: 1px 5px;
+  height: fit-content;
+  white-space: nowrap;
+  background: var(--paper-2);
+}
+/* правка файла новее сборки протокола: войдёт в него после пересборки (п. 11) */
+.tag-wait {
+  border-color: var(--clarify);
+  color: var(--clarify-deep);
+}
+.edit-list {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+/* Все кандидаты решены (п. 10): итог строкой над списком таблицы 2 */
+.list-done {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--pencil);
+}
+/* Решение вернула пересборка: расхождения больше нет, решает инспектор */
+.reopened {
+  margin-bottom: 8px;
+  padding: 6px 9px;
+  border-left: 3px solid var(--clarify);
+  background: var(--paper);
+  color: var(--graphite);
+}
+/* третья колонка — исполнительная документация (#42) — и признаки источника значения (#41) */
+.sides.sides-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.side-marks {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0 4px;
+}
+.id-check {
+  color: var(--pale);
+  margin: -4px 0 8px;
+}
+/* цепочка редакций без актуальной (#10): ждёт решения инспектора */
+.tag.tag-clarify {
+  color: var(--clarify-deep);
+  border-color: var(--clarify);
+}
+.why {
+  grid-column: 1 / -1;
+  font-size: 11.5px;
+  color: var(--pale);
+}
+
+/* Центральная колонка: карточка находки */
+.card-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.card-foot {
+  flex: 0 0 auto;
+  border-top: 1.5px solid var(--graphite);
+  padding: 10px 11px;
+  display: grid;
+  gap: 8px;
+}
+.card-id {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pencil);
+  flex-wrap: wrap;
+}
+.chip {
+  border: 1px solid var(--graphite);
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--narrow);
+}
+.chip.solid {
+  background: var(--graphite);
+  color: var(--paper-2);
+  font-family: var(--mono);
+  letter-spacing: 0;
+}
+/* #41: запись, которую система не решает сама (распознанное значение, расхождение со слоем) */
+.chip.chip-expert {
+  color: var(--clarify-deep);
+  border-color: var(--clarify);
+}
+/* Уверенность в карточке (#80): значок и слово уровня; признаки, из которых он сложен, —
+   в подсказке. Пунктир под словом говорит, что пояснение есть. */
+.conf-head {
+  display: inline-flex;
+  align-items: center;
+}
+.conf-head.has-why {
+  cursor: help;
+}
+.confidence .conf-word {
+  margin-left: 5px;
+  font-weight: 700;
+}
+.conf-head.has-why .conf-word {
+  border-bottom: 1px dotted var(--pencil);
+}
+.card-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 700;
+  text-wrap: balance;
+}
+/* после решения фокус ставится на заголовок, чтобы клавиши решали, а не печатали (п. 7) */
+.card-title:focus {
+  outline: none;
+}
+.card-title:focus-visible {
+  outline: 1px dashed var(--pale);
+  outline-offset: 3px;
+}
+
+.sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--graphite);
+}
+.side {
+  padding: 9px 10px;
+  min-width: 0;
+}
+.side + .side {
+  border-left: 1px solid var(--graphite);
+}
+.side-head {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 5px;
+  min-width: 0;
+}
+.stage {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  border: 1.5px solid var(--graphite);
+  padding: 0 5px;
+}
+.side-doc {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--pencil);
+  overflow-wrap: anywhere;
+}
+.side-value {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-block: 5px 4px;
+  font-variant-numeric: tabular-nums;
+}
+.side-value.absent,
+.absent-inline {
+  display: inline-block;
+  padding: 2px 8px;
+  background-image: var(--hatch);
+  border: 1px dashed var(--pencil);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--pencil);
+}
+.side-quote {
+  font-size: 12px;
+  color: var(--pencil);
+  border-left: 2px solid var(--rule);
+  padding-left: 8px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.side-revisions {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--pencil);
+  border-left: 2px dashed var(--pencil);
+  padding-left: 8px;
+}
+.stale {
+  color: var(--reject-deep);
+  font-weight: 700;
+}
+/* Экран файлов объекта: отбор и правка стадии (#39). Раскладка .filters — ниже,
+   у экрана объектов; здесь только отличия: кнопки отбора и выбор стадии в строке */
+.card-body > .filters {
+  margin-bottom: 8px;
+}
+.filters .btn[aria-current="true"] {
+  border-color: var(--graphite);
+  box-shadow: inset 0 0 0 1px var(--graphite);
+}
+.pick {
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--pencil);
+  /* только цвет: сокращённое background стирало бы шеврон выпадающего списка (#74) */
+  background-color: var(--paper-2);
+  padding: 3px 5px;
+  max-width: 190px;
+}
+.pick:disabled {
+  opacity: 0.5;
+}
+.absent {
+  color: var(--reject-deep);
+}
+.pane.readiness .status-row .tag {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Меню выгрузки протокола */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu > summary.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 10;
+  min-width: 240px;
+  display: grid;
+  background: var(--paper-2);
+  border: 1.5px solid var(--graphite);
+  box-shadow: 3px 3px 0 rgba(23, 24, 26, 0.18);
+}
+.menu-list button {
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.menu-list button:last-child {
+  border-bottom: 0;
+}
+.menu-list button:hover,
+.menu-list button:focus-visible {
+  background: var(--tint);
+}
+.side-src {
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--pale);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+}
+/* Источник: где взято значение и чем этот источник подтверждён — редакция, утверждение, хеш файла */
+.side-src .src {
+  display: grid;
+  gap: 1px;
+}
+/* строка источника — кнопка: показывает эту страницу справа (п. 13) */
+.side-src .src-pick {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.side-src .src-pick:hover {
+  color: var(--graphite);
+}
+.side-src .src-pick:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.side-src .src-what {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  color: var(--pencil);
+}
+.side-src .sha {
+  cursor: help;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+  margin: 0;
+}
+.kv dt {
+  font-family: var(--narrow);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pale);
+  padding-top: 2px;
+}
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* Расхождение — суть находки, ради неё карточку и открывают: крупнее остальных полей
+   и на подложке, но без цвета решений, который на этом листе значит только «подтвердить,
+   отклонить, уточнить». */
+.kv dd.detail {
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--graphite);
+  background: var(--tint);
+  border-left: 3px solid var(--pencil);
+  padding: 5px 9px;
+  margin: -3px 0;
+}
+.note {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.25;
+  color: var(--ink);
+  border-left: 2px solid var(--rule);
+  padding-left: 9px;
+}
+.foot-note {
+  font-size: 12.5px;
+  color: var(--pencil);
+}
+/* Возврат автоматически проверенной записи в кандидаты (#74): действие редкое,
+   поэтому обычной кнопкой рядом с объяснением, а не в ряду трёх решений. */
+.foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+.disputed-note {
+  margin: 0 0 8px;
+  color: var(--pencil);
+}
+
+/* Три действия: единственный цвет на листе, заливкой */
+.actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.act {
+  flex: 1 1 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 12px;
+  border: 1.5px solid var(--edge);
+  background: var(--fill);
+  color: var(--on-color);
+  font-family: var(--narrow);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.act .glyph {
+  font-family: var(--hand);
+  font-size: 20px;
+  line-height: 1;
+}
+/* Клавиша решения — цифрой в углу кнопки: видна, когда её ищут, и не спорит с названием */
+.act {
+  position: relative;
+}
+.act-key {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+  opacity: 0.55;
+}
+.act-confirm {
+  --fill: var(--confirm);
+  --edge: var(--confirm-deep);
+}
+.act-reject {
+  --fill: var(--reject);
+  --edge: var(--reject-deep);
+}
+.act-clarify {
+  --fill: var(--clarify);
+  --edge: var(--clarify-deep);
+}
+.act:hover:not(:disabled) {
+  background: var(--edge);
+  box-shadow: 3px 3px 0 rgba(23, 24, 26, 0.22);
+}
+.act:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reasons {
+  border: 1.5px solid var(--reject-deep);
+  padding: 8px 10px;
+  display: grid;
+  gap: 8px;
+  /* ряд причин подстраивается под ширину карточки, а не окна */
+  container-type: inline-size;
+}
+.reasons-head {
+  font-family: var(--narrow);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--reject-deep);
+}
+/* Пять причин — одним рядом равных колонок: подпись переносится внутри кнопки, длинное
+   слово — с переносом по слогам, цифра клавиши — в углу, как у кнопок решения */
+.reason-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.reason {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  font-size: 12.5px;
+  line-height: 1.25;
+  padding: 5px 14px 5px 7px;
+  cursor: pointer;
+  text-align: left;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.reason:hover,
+.reason[aria-checked="true"] {
+  border-color: var(--reject-deep);
+  color: var(--reject-deep);
+}
+.reason[aria-checked="true"] {
+  box-shadow: inset 0 0 0 1px var(--reject-deep);
+}
+.reason-key {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--pencil);
+  opacity: 0.7;
+}
+.reason .code {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--pale);
+  display: block;
+  margin-top: 2px;
+  hyphens: none;
+}
+/* Узкая карточка: код из ТЗ уходит в подсказку кнопки, ряд остаётся один */
+@container (max-width: 579px) {
+  .reason .code {
+    display: none;
+  }
+}
+/* Узкая карточка (окно около 1280 px): ряд тот же, шрифт и поля мельче */
+@container (max-width: 400px) {
+  .reason-grid {
+    gap: 4px;
+  }
+  .reason {
+    font-size: 11.5px;
+    padding: 4px 11px 4px 5px;
+  }
+  .reason-key {
+    right: 3px;
+  }
+}
+/* Совсем узкая: в пяти колонках слова дробятся по слогам — три и две */
+@container (max-width: 340px) {
+  .reason-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.comment {
+  width: 100%;
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  padding: 6px 8px;
+  resize: vertical;
+}
+.reason-actions {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+/* Подсказка по клавишам: решение принимается одной клавишей, и это должно быть видно на экране */
+.key-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--pale);
+  font-family: var(--narrow);
+  letter-spacing: 0.04em;
+}
+.hypothesis {
+  display: grid;
+  gap: 8px;
+}
+.hypothesis .foot-note {
+  margin: 0;
+}
+/* В плашке решения комментарий остаётся печатным: цветная заливка и почерк рядом
+   спорят друг с другом. Рука инспектора — в карточке, в блоке `.note`. */
+.decided-comment {
+  display: block;
+  font-size: 12px;
+  color: var(--pencil);
+  margin-top: 3px;
+}
+.reason-actions .act {
+  flex: 0 1 200px;
+}
+
+.decided {
+  border: 1.5px solid currentColor;
+  padding: 8px 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+/* Решённая запись видна сразу: лёгкая заливка тоном решения. Цвет тот же, что у трёх
+   кнопок, но разведённый бумагой — заливка помечает запись, а не спорит с кнопками. */
+.decided.tone-confirm {
+  color: var(--confirm-deep);
+  background: color-mix(in srgb, var(--confirm) 8%, var(--paper-2));
+}
+.decided.tone-reject {
+  color: var(--reject-deep);
+  background: color-mix(in srgb, var(--reject) 8%, var(--paper-2));
+}
+.decided.tone-clarify {
+  color: var(--clarify-deep);
+  background: color-mix(in srgb, var(--clarify) 9%, var(--paper-2));
+}
+.decided .glyph {
+  font-family: var(--hand);
+  font-size: 24px;
+  line-height: 1;
+}
+.decided .undo {
+  margin-left: auto;
+  border: 1px solid var(--pencil);
+  background: none;
+  font-size: 12px;
+  color: var(--pencil);
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.split-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 12.5px;
+}
+
+/* Правая колонка: всегда две страницы одного размера */
+.page-card {
+  flex: 1 1 0;
+  min-height: 0;
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+  display: flex;
+  flex-direction: column;
+}
+.page-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--graphite);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--pencil);
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+.page-head .stage {
+  font-family: var(--narrow);
+}
+.sheet-no {
+  margin-left: auto;
+}
+.pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pager button {
+  border: 1px solid var(--pencil);
+  background: none;
+  width: 20px;
+  height: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pager button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.plan-button {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.plan {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.plan-wait,
+.plan-absent {
+  display: grid;
+  place-items: center;
+  color: var(--pencil);
+  font-style: italic;
+  font-size: 12.5px;
+  padding: 16px;
+  text-align: center;
+}
+.plan-absent span {
+  background: var(--paper-2);
+  padding: 2px 8px;
+}
+.cloud {
+  fill: none;
+  stroke: var(--graphite);
+  stroke-width: 2.4px;
+}
+.cloud-halo {
+  fill: none;
+  stroke: rgba(253, 253, 252, 0.9);
+  stroke-width: 6px;
+}
+.page-foot {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-top: 1px solid var(--rule);
+  font-size: 11.5px;
+  color: var(--pencil);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+.legend {
+  margin-left: auto;
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+
+/* ── Обработка ────────────────────────────────────────────────────── */
+.processing {
+  flex: 0 0 auto;
+}
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  counter-reset: step;
+}
+.step {
+  counter-increment: step;
+  padding: 6px 10px;
+  border: 1px solid var(--rule);
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+.step::before {
+  content: counter(step) " · ";
+  font-family: var(--mono);
+}
+.step-done {
+  border-color: var(--graphite);
+  color: var(--graphite);
+}
+.step-done::after {
+  content: " ✓";
+  font-family: var(--hand);
+  font-size: 16px;
+}
+.step-active {
+  border: 1.5px solid var(--graphite);
+  color: var(--graphite);
+  background-image: var(--hatch);
+}
+.step-failed {
+  border: 1.5px dashed var(--graphite);
+  color: var(--graphite);
+}
+.progress {
+  padding: 0 10px 10px;
+  display: grid;
+  gap: 6px;
+}
+.progress-label {
+  font-size: 12.5px;
+  color: var(--pencil);
+}
+.bar {
+  height: 8px;
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--graphite);
+  transition: width 0.3s ease;
+}
+.bar-indeterminate {
+  width: 30%;
+  animation: slide 1.4s ease-in-out infinite;
+}
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  border: 1px dashed var(--graphite);
+  padding: 8px 10px;
+}
+.inline-form .field {
+  flex: 1 1 320px;
+}
+
+/* ── Поля ввода ───────────────────────────────────────────────────── */
+.field {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.field small {
+  color: var(--pale);
+  font-size: 11.5px;
+}
+input:not([type="file"]),
+select {
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+/* Список раскрывается — это должно быть видно (#74): серый шеврон справа у select и у полей
+   со списком готовых значений. На фокусе шеврон переворачивается, как в привычных формах. */
+select,
+input[list] {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23707275' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+select:focus,
+input[list]:focus {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 6l4-4 4 4' fill='none' stroke='%2317181a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+select.pick,
+select.pick:focus {
+  background-position: right 5px center;
+  padding-right: 20px;
+}
+
+/* ── Объекты ──────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  padding: 3px 9px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.filter[aria-pressed="true"] {
+  border-color: var(--graphite);
+  box-shadow: inset 0 0 0 1px var(--graphite);
+  font-weight: 700;
+}
+.filter .count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pale);
+}
+.search {
+  margin-left: auto;
+  flex: 0 1 320px;
+}
+/* Второй ряд отбора: разделы Матрицы и даты (#83) */
+.toolbar-2 {
+  margin-top: -4px;
+}
+.filters-label {
+  align-self: center;
+  margin-right: 2px;
+  font-family: var(--narrow);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+.date-range {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.date-range input {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 2px 6px;
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+}
+.reset-filters {
+  margin-left: auto;
+  font-size: 12.5px;
+}
+
+/* Светофор: цвет — из карандашей решения, форма дублирует цвет для печати и дальтонизма */
+.light {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--graphite);
+  vertical-align: middle;
+}
+.light-violations {
+  background: var(--reject);
+  border-color: var(--reject-deep);
+}
+.light-pending {
+  background: var(--clarify);
+  border-color: var(--clarify-deep);
+  border-radius: 50%;
+}
+.light-clean {
+  background: var(--confirm);
+  border-color: var(--confirm-deep);
+  border-radius: 50%;
+}
+.light-incomplete {
+  background-image: var(--hatch);
+  border-radius: 50%;
+}
+.light-processing {
+  border-style: dashed;
+  border-radius: 50%;
+}
+.light-failed {
+  border-color: var(--reject-deep);
+  border-width: 2.5px;
+}
+.light-empty {
+  border-color: var(--rule);
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 6px 9px;
+  background: var(--tint);
+  border-bottom: 1px solid var(--graphite);
+  font-family: var(--narrow);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pencil);
+  white-space: nowrap;
+}
+.table td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+.table .num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table tr.clickable {
+  cursor: pointer;
+}
+.table tr.clickable:hover,
+.table tr.clickable:focus-visible {
+  background: var(--tint);
+}
+/* Ссылка «открыть файл» в строке реестра: у длинного имени она оказывалась вплотную к нему. */
+.cell-title .tip-wrap {
+  margin-left: 8px;
+}
+.cell-title .tip-wrap .link {
+  white-space: nowrap;
+}
+.cell-title {
+  font-weight: 700;
+}
+.audit td:first-child,
+.audit td:nth-child(2) {
+  white-space: nowrap;
+}
+
+/* ── Загрузка ─────────────────────────────────────────────────────── */
+.upload {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.lede {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--pencil);
+}
+/* Пояснения над таблицей: колонками по ширине блока, мера строки остаётся читаемой.
+   Так же устроено пояснение набора решений (.explain-body). */
+.explain-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 26px;
+  align-items: start;
+  margin-bottom: 9px;
+}
+/* Слово в тексте, у которого есть подсказка: журнал аудита открывает администратор. */
+.hintword {
+  border-bottom: 1px dashed var(--pale);
+  cursor: help;
+}
+
+.explain-row .lede {
+  flex: 1 1 30ch;
+  max-width: none;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px 16px;
+}
+/* Способ чтения объекта (#54): три строки выбора, у каждой — чем она обернётся */
+.reading-mode {
+  border: 1px solid var(--pencil);
+  padding: 10px 12px 12px;
+  margin: 0;
+}
+.reading-mode legend {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pale);
+  padding: 0 4px;
+}
+.reading-mode .mode {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.reading-mode .mode:hover {
+  /* только цвет: сокращённое background сбросило бы штриховку выбранной строки */
+  background-color: var(--paper-2);
+}
+.reading-mode .mode-on {
+  background-image: var(--hatch);
+}
+.reading-mode .mode-title {
+  font-weight: 600;
+}
+.reading-mode .mode-hint {
+  grid-column: 2;
+  color: var(--pale);
+  font-size: 11.5px;
+}
+.pickers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.picker {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 16px 18px;
+  border: 1.5px dashed var(--graphite);
+  background: var(--paper-2);
+  cursor: pointer;
+}
+.picker:hover {
+  background-image: var(--hatch);
+}
+.picker:focus-within {
+  outline: 2px solid var(--graphite);
+  outline-offset: 2px;
+}
+.picker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.picker-title {
+  font-family: var(--narrow);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.picker-sub {
+  font-size: 12px;
+  color: var(--pale);
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  border: 1.5px solid var(--graphite);
+}
+.stat {
+  display: grid;
+  padding: 7px 10px;
+  border-right: 1px solid var(--graphite);
+  background: var(--paper-2);
+}
+.stat:last-child {
+  border-right: 0;
+}
+.stat-value {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+.stat-warn {
+  background-image: var(--hatch);
+}
+.details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.file-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  max-height: 320px;
+  overflow: auto;
+  border-top: 1px solid var(--rule);
+}
+.file-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+}
+.path {
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.reason-text,
+.file-list .reason {
+  color: var(--pencil);
+}
+
+/* ── Вход ─────────────────────────────────────────────────────────── */
+.login {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.login-sheet {
+  width: min(400px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  border: 2px solid var(--graphite);
+  box-shadow: inset 0 0 0 1px var(--paper-2), inset 0 0 0 5px var(--rule);
+  background: rgba(253, 253, 252, 0.9);
+}
+.login-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1.5px solid var(--graphite);
+  padding-bottom: 10px;
+}
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pale);
+}
+
+/* ── Страница крупно ──────────────────────────────────────────────── */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: 2px solid var(--graphite);
+}
+/* Журнал обработки (#83): лист поверх экрана со своей прокруткой, уже не на весь экран —
+   за ним должен оставаться виден реестр, из которого его открыли. Селектор с двумя
+   классами: одиночный проиграл бы «.viewer { inset: 0 }» по порядку в файле. */
+.viewer.log {
+  inset: auto;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1000px, 94vw);
+  height: min(82vh, 920px);
+  box-shadow: 0 8px 40px rgba(23, 24, 26, 0.25);
+}
+.viewer.log .card-body {
+  gap: 14px;
+}
+.viewer.log .pane.statuses {
+  flex: 0 0 auto;
+}
+.viewer.log .viewer-head .btn {
+  margin-left: auto;
+}
+
+.viewer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 12px;
+  border-bottom: 1.5px solid var(--graphite);
+  background: var(--paper-2);
+}
+.viewer-title {
+  font-weight: 700;
+}
+.viewer-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Сопоставление двух листов во весь экран (#74): у каждой стороны свой масштаб. */
+.compare {
+  z-index: 25;
+}
+.compare-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+}
+.compare-columns {
+  grid-template-columns: 1fr 1fr;
+}
+.compare-rows {
+  grid-template-rows: 1fr 1fr;
+}
+.compare-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--rule);
+}
+.compare-columns .compare-side + .compare-side,
+.compare-rows .compare-side + .compare-side {
+  border-left: 1px solid var(--graphite);
+}
+.compare-rows .compare-side + .compare-side {
+  border-left: 0;
+  border-top: 1px solid var(--graphite);
+}
+.compare-side .viewer-head {
+  border-bottom: 1px solid var(--rule);
+}
+.compare-side .viewer-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Кнопка-знак: только иконка, без текста; рамка появляется под курсором. */
+.icon-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--pencil);
+  cursor: pointer;
+}
+.icon-btn:hover {
+  border-color: var(--pencil);
+  color: var(--graphite);
+}
+
+.viewer-value {
+  color: var(--graphite);
+  font-family: var(--mono);
+  font-weight: 600;
+}
+.viewer-quote {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--pencil);
+  font-size: 12.5px;
+  background: var(--paper-2);
+}
+.viewer-stage {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  cursor: grab;
+  touch-action: none;
+}
+.viewer-stage:active {
+  cursor: grabbing;
+}
+.zoom-level {
+  min-width: 5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Под монитор: лист занимает высоту экрана, прокрутка внутри ───── */
+@media (min-width: 1100px) and (min-height: 620px) {
+  .app {
+    height: 100dvh;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 1399px) {
+  .head-queues {
+    display: none;
+  }
+  .verify-head .head-meta {
+    column-gap: 14px;
+  }
+  .verify-head .head-object {
+    flex-basis: 120px;
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 1099px) {
+  .work {
+    grid-template-columns: 250px minmax(300px, 1fr);
+  }
+  .verify-head {
+    grid-template-columns: 250px minmax(0, 1fr) auto;
+  }
+  /* в узкой средней колонке строка не помещается — графы в три колонки, в две строки */
+  .verify-head .head-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, max-content));
+    justify-content: start;
+  }
+  .verify-head .head-object {
+    min-width: 0;
+    max-width: 170px;
+  }
+  /* значение переносится, а не обрезается многоточием; название объекта — целиком в подсказке */
+  .verify-head .head-cell:not(.head-object) .v {
+    white-space: normal;
+  }
+  .col-pages {
+    grid-column: 1 / -1;
+    flex-direction: row;
+  }
+  /* колонка страниц лежит строкой: строка об изменении листа держится у карточки, а не на всю ширину */
+  .rev-hint {
+    margin-top: 0;
+    align-self: flex-start;
+    flex: 0 1 240px;
+  }
+  .page-card {
+    min-height: 340px;
+  }
+  .list {
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app {
+    flex-direction: column;
+  }
+  .rail {
+    flex: 0 0 auto;
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1.5px solid var(--graphite);
+    padding-inline: 12px;
+    padding-block: 6px;
+  }
+  .rail-mark {
+    margin-bottom: 0;
+    margin-right: 6px;
+  }
+  .rail-user {
+    margin-top: 0;
+    margin-left: auto;
+    border-top: 0;
+  }
+  .sheet {
+    padding-inline: 16px;
+  }
+  .work {
+    grid-template-columns: 1fr;
+  }
+  .col-pages {
+    grid-column: auto;
+    flex-direction: column;
+  }
+  .sides {
+    grid-template-columns: 1fr;
+  }
+  .side + .side {
+    border-left: 0;
+    border-top: 1px solid var(--graphite);
+  }
+  .steps {
+    grid-template-columns: 1fr;
+  }
+  .search {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+  h1 {
+    font-size: 18px;
+  }
+  .head-meta {
+    margin-left: 0;
+  }
+  .verify-head {
+    display: flex;
+  }
+  .verify-head .head-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Что система прочитала в файле (#52): текст страниц как есть, у каждой — чем прочитана. */
+.text-sources {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.text-search {
+  width: 100%;
+  margin: 4px 0 10px;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  font: inherit;
+}
+.page-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.page-text {
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.page-text header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--rule);
+  flex-wrap: wrap;
+}
+.page-text pre {
+  margin: 0;
+  padding: 8px;
+  max-height: 340px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.page-text > .small {
+  padding: 8px;
+}
+.text-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* Значение прочитано распознаванием, а не текстовым слоем (#52): на сканах машина путает цифры. */
+.side-read {
+  margin-top: 3px;
+  font-family: var(--narrow);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pencil);
+  border-top: 1px dotted var(--rule);
+  padding-top: 3px;
+}
+
+/* ── Дашборд объекта (#83) ─────────────────────────────────────────── */
+/* Лист поверх реестра, как журнал обработки, но шире: главное в нём — карта 132 параметров.
+   Цвета карты — только у трёх исходов сравнения; палитра проверена на различимость при
+   дальтонизме (ΔE ≥ 9 между цветными состояниями, контраст с листом ≥ 2,9) и держит знаки
+   «! ? ✓», чтобы карта читалась и в чёрно-белой печати. Красный — тот же, что у отказа. */
+.viewer.dash {
+  inset: auto;
+  top: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1180px, 96vw);
+  height: min(94vh, 1060px);
+  box-shadow: 0 8px 40px rgba(23, 24, 26, 0.25);
+  --hm-violation: #b0241c;
+  --hm-candidate: #c98a0e;
+  --hm-clean: #2e9c74;
+  --hm-out-of-scope: #7d8fa3;
+  --hm-hypothesis: #7a5bb0;
+  --hm-hypothesis-soft: #ebe4f6;
+}
+.dash-body {
+  gap: 14px;
+  background: var(--paper);
+}
+.dash-body > section {
+  flex: 0 0 auto;
+}
+
+.dash-top {
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) minmax(0, 2.6fr);
+  gap: 14px;
+}
+.dash-verdict {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+}
+.dash-verdict .light {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+}
+.dash-verdict-text {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.dash-verdict-more {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.dash-verdict-more + .small,
+.dash-verdict-text + .small {
+  margin-top: 4px;
+}
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 14px;
+  min-width: 0;
+}
+.kpi + .kpi {
+  border-left: 1px solid var(--rule);
+}
+.kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--narrow);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.kpi-value {
+  font-family: var(--mono);
+  font-size: 30px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--graphite);
+}
+.kpi-of {
+  font-size: 14px;
+  color: var(--pale);
+}
+.kpi-note {
+  font-size: 11.5px;
+  color: var(--pale);
+}
+
+/* Пять таблиц протокола строкой: номер, название, число — как в левой колонке проверки */
+.dash-tables {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+}
+.dash-table {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--graphite);
+  text-align: left;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.dash-table + .dash-table {
+  border-left: 1px solid var(--rule);
+}
+.dash-table:hover {
+  background: var(--tint);
+}
+.dash-table-n {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pale);
+}
+.dash-table-count {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-stages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.4fr);
+  border: 1px solid var(--graphite);
+  background: var(--paper-2);
+}
+.dash-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+.dash-stage + .dash-stage {
+  border-left: 1px solid var(--rule);
+}
+.dash-stage-code {
+  font-family: var(--narrow);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.dash-stage-state {
+  font-size: 13.5px;
+}
+
+.dash-map-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+.dash-bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+}
+.dash-bar-seg {
+  min-width: 3px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+.dash-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  color: var(--graphite);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.legend-item:hover:not(:disabled) {
+  background: var(--tint);
+}
+.legend-item[aria-pressed="true"] {
+  border-color: var(--graphite);
+  background: var(--tint);
+}
+.legend-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.legend-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--pencil);
+}
+
+.dash-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dash-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 12px;
+}
+.dash-row-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--narrow);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.dash-row-label.wide {
+  flex-wrap: wrap;
+}
+.dash-row-hint {
+  flex-basis: 100%;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--pale);
+}
+.dash-row-n {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--pale);
+}
+.dash-row-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.dash-row-stat {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Клетка карты и образец в легенде: одна и та же фигура */
+.hm-cell {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font: 700 11px/1 var(--sans);
+  color: var(--on-color);
+  cursor: default;
+}
+.hm-cell.linked {
+  cursor: pointer;
+}
+.hm-cell:focus-visible,
+.hm-cell.on {
+  outline: 2px solid var(--graphite);
+  outline-offset: 1px;
+}
+.hm-cell.dim,
+.dash-bar-seg.dim {
+  opacity: 0.16;
+}
+.hm-swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  font-size: 8.5px;
+}
+.hm-VIOLATION {
+  background: var(--hm-violation);
+}
+.hm-CANDIDATE {
+  background: var(--hm-candidate);
+  color: var(--graphite);
+}
+.hm-CLEAN {
+  background: var(--hm-clean);
+}
+.hm-NOT_COMPARABLE {
+  background: var(--paper-2);
+  border: 1.5px dotted var(--pencil);
+}
+/* «Нет доказательств» — штриховкой, как отсутствие на чертеже: это не нарушение (ТЗ 9.3) */
+.hm-MISSING_EVIDENCE {
+  background-color: var(--paper-2);
+  background-image: repeating-linear-gradient(45deg, var(--pale) 0 1px, transparent 1px 4px);
+  border-color: var(--pale);
+}
+.hm-NOT_APPLICABLE {
+  background-color: var(--paper-2);
+  background-image: linear-gradient(135deg, transparent 44%, var(--pale) 44% 56%, transparent 56%);
+  border-color: var(--rule);
+}
+.hm-NOT_CHECKED {
+  background: var(--paper-2);
+  border-color: var(--rule);
+}
+/* «Вне проверки документов» — свой цвет: параметр проверяется во внешней системе стадии
+   строительства или отказан по замеру, правила для него не будет */
+.hm-OUT_OF_SCOPE {
+  background: var(--hm-out-of-scope);
+  border-color: var(--hm-out-of-scope);
+}
+/* «Черновик правила» (#95): параметр проверен правилом, которое ждёт решения специалиста.
+   Пунктир — проверка предварительная, её нарушения — гипотезы до решения инспектора */
+.hm-HYPOTHESIS {
+  background: var(--hm-hypothesis-soft);
+  border: 1px dashed var(--hm-hypothesis);
+}
+
+/* Высота строки постоянная: иначе длинная причина у одной клетки и короткая у другой
+   двигали всё, что ниже, — а у прокрученного до конца листа и саму карту, и щелчок
+   мышью приходился уже на соседнюю клетку. */
+.dash-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  gap: 4px 10px;
+  /* высота постоянная, чтобы карта не прыгала при наведении; с запасом на две строки пометки «не проверено» */
+  height: 92px;
+  overflow: hidden;
+  padding: 8px 12px;
+  border: 1px dashed var(--rule);
+  background: var(--paper);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.dash-detail-reason {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dash-detail-note {
+  flex-basis: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--graphite);
+}
+.dash-switch {
+  display: inline-flex;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.dash-switch .link[aria-pressed="true"] {
+  color: var(--graphite);
+  font-weight: 700;
+  text-decoration: none;
+}
+.dash-history {
+  font-size: 12px;
+}
+.dash-map-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+
+.dash-bottom {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.dash-pane-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+@media (max-width: 960px) {
+  .dash-top,
+  .dash-bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dash-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi:nth-child(3) {
+    border-left: 0;
+  }
+  .kpi:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+  .dash-stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-tables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dash-table + .dash-table {
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .dash-row {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .dash-row-stat {
+    display: none;
+  }
+}
+
+/* ── Связи документов (#82) ───────────────────────────────────────── */
+/* Вкладка дашборда и панель карточки находки. Дизайн — docs/design/82-document-links.html:
+   цвета дуг — те же три исхода, что на карте параметров; несопоставимое — точками,
+   гипотеза — штрихом, чтобы связь читалась и без цвета. */
+.lk-panel,
+.lk-tab {
+  --hm-violation: #b0241c;
+  --hm-candidate: #c98a0e;
+  --hm-clean: #2e9c74;
+  --hm-out-of-scope: #7d8fa3;
+  --hm-hypothesis: #7a5bb0;
+  --hm-hypothesis-soft: #ebe4f6;
+}
+.dash-tabs {
+  display: flex;
+  gap: 0;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--graphite);
+  background: var(--paper-2);
+}
+.dash-tabs button {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  padding: 8px 12px;
+  font: 700 12px var(--narrow);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pale);
+  cursor: pointer;
+}
+.dash-tabs button[aria-selected="true"] {
+  color: var(--graphite);
+  border-bottom-color: var(--graphite);
+}
+.dash-tabs button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.lk-tab {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 14px;
+  align-items: start;
+}
+.lk-map-body,
+.lk-ctx-body {
+  padding: 10px 12px 12px;
+}
+.lk-map-wrap {
+  overflow-x: auto;
+}
+svg.lk-map {
+  display: block;
+  width: 100%;
+  min-width: 360px;
+  height: auto;
+}
+svg.lk-map text {
+  font-family: var(--sans);
+  fill: var(--graphite);
+}
+svg.lk-map .lk-colhead {
+  font: 700 11px var(--narrow);
+  letter-spacing: 0.14em;
+  fill: var(--pencil);
+}
+svg.lk-map .lk-rowhead {
+  font: 700 12px var(--narrow);
+  letter-spacing: 0.06em;
+}
+svg.lk-map .lk-cnt {
+  font: 11px var(--mono);
+  fill: var(--pencil);
+}
+svg.lk-map .lk-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  cursor: pointer;
+}
+svg.lk-map .lk-hit:focus-visible {
+  outline: none;
+  stroke: var(--ink);
+  stroke-opacity: 0.25;
+}
+.lk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--pencil);
+}
+.lk-legend i {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  margin-right: 5px;
+  border-top: 3px solid var(--pencil);
+  vertical-align: middle;
+}
+.lk-tip {
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px dashed var(--rule);
+  background: var(--paper);
+  font-size: 12.5px;
+  color: var(--pencil);
+}
+.lk-h {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 12px 0 5px;
+  font: 700 11.5px var(--narrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.lk-h .link {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.lk-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+}
+.lk-item {
+  display: grid;
+  grid-template-columns: 11px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+  text-align: left;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.lk-item:last-child {
+  border-bottom: 0;
+}
+.lk-item[aria-selected="true"] {
+  background: var(--tint);
+  box-shadow: inset 3px 0 0 var(--graphite);
+}
+.lk-item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.lk-item-loc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lk-dot {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--pale);
+  flex: none;
+}
+.lk-dot.st-VIOLATION {
+  background: var(--hm-violation);
+}
+.lk-dot.st-CANDIDATE {
+  background: var(--hm-candidate);
+}
+.lk-dot.st-CLEAN {
+  background: var(--hm-clean);
+}
+.lk-dot.st-NOT_COMPARABLE {
+  background: none;
+  border: 1.5px dotted var(--pencil);
+}
+.lk-dot.st-SUSPICION {
+  background: none;
+  border: 1.5px dashed var(--pale);
+}
+.lk-dot.st-MISSING_EVIDENCE {
+  background: var(--hatch);
+  border: 1px solid var(--pale);
+}
+
+/* контекст находки */
+.lk-finding {
+  padding: 9px 11px;
+  border: 1.5px solid var(--graphite);
+  background: var(--paper-2);
+}
+.lk-finding-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 4px;
+}
+.lk-finding-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.lk-state {
+  padding: 2px 7px;
+  border: 1px solid var(--pale);
+  font: 700 11px var(--narrow);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.lk-state.st-VIOLATION {
+  color: var(--on-color);
+  background: var(--hm-violation);
+  border-color: var(--hm-violation);
+}
+.lk-state.st-CANDIDATE {
+  color: var(--clarify-deep);
+  background: #f6ecd8;
+  border-color: var(--hm-candidate);
+}
+.lk-state.st-CLEAN {
+  color: var(--confirm-deep);
+  border-color: var(--hm-clean);
+}
+.lk-state.st-MISSING_EVIDENCE {
+  background-image: var(--hatch);
+}
+.lk-state.st-NOT_COMPARABLE {
+  border-style: dotted;
+}
+.lk-state.st-SUSPICION {
+  border-style: dashed;
+}
+.lk-bus {
+  height: 16px;
+  margin-left: 50%;
+  border-left: 1.5px solid var(--graphite);
+}
+.lk-stages {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1.5px solid var(--graphite);
+}
+.lk-compact .lk-stages {
+  padding-top: 0;
+  border-top: 0;
+}
+.lk-col {
+  position: relative;
+  min-width: 0;
+}
+.lk-col::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  height: 14px;
+  border-left: 1.5px solid var(--graphite);
+}
+.lk-col.empty::before {
+  border-left: 1.5px dashed var(--pale);
+}
+.lk-compact .lk-col::before {
+  display: none;
+}
+.lk-col-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--graphite);
+  font: 700 12px var(--narrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.lk-val {
+  margin-left: auto;
+  font: 11.5px var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.lk-doc {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.lk-doc-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.lk-doc-top b {
+  overflow-wrap: anywhere;
+}
+.lk-doc-top .link {
+  margin-left: auto;
+  flex: none;
+}
+.lk-meta {
+  font: 11px var(--mono);
+  color: var(--pencil);
+  overflow-wrap: anywhere;
+}
+.lk-quote {
+  margin-top: 3px;
+  color: var(--pencil);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.lk-rev {
+  padding: 1px 5px;
+  border: 1px solid var(--pale);
+  font: 700 10px var(--narrow);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.lk-rev.old {
+  background-image: var(--hatch);
+}
+.lk-none {
+  padding: 10px 8px;
+  border: 1px dashed var(--pale);
+  background-image: var(--hatch);
+  font-size: 12px;
+  color: var(--pencil);
+}
+.lk-related {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+.lk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.lk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.lk-chip:hover:not(:disabled) {
+  border-color: var(--graphite);
+}
+.lk-chip:disabled {
+  cursor: default;
+}
+.lk-chip .lk-dot {
+  width: 9px;
+  height: 9px;
+}
+.lk-room {
+  margin-bottom: 5px;
+  padding: 7px 9px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  font-size: 12.5px;
+}
+.lk-room.cut {
+  background-image: var(--hatch);
+}
+.lk-roomdocs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.lk-roomdocs button {
+  padding: 1px 5px;
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  font: 11px var(--mono);
+  cursor: pointer;
+}
+.lk-roomdocs.ghost button {
+  border-style: dashed;
+  color: var(--pale);
+}
+.lk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+/* панель в карточке находки: свёрнута, раскрывается по щелчку */
+.lk-panel {
+  margin-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.lk-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  font: 700 12px var(--narrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--graphite);
+  text-align: left;
+  cursor: pointer;
+}
+.lk-panel-head .muted {
+  font: 12px var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.lk-panel-head:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.lk-caret {
+  width: 12px;
+}
+
+@media (max-width: 960px) {
+  .lk-tab {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .lk-stages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lk-col::before {
+    display: none;
+  }
+}
+.lk-finding .code {
+  padding: 1px 6px;
+  background: var(--graphite);
+  color: var(--paper-2);
+  font: 700 11px var(--mono);
+}
+.lk-item .code {
+  font: 700 11px var(--mono);
+}
+
+/* ── Правила: страница эксперта (Р-134) ─────────────────────────────
+   Слева — параметры по разделам Матрицы и виды свободного поиска, справа — правило выбранного.
+   Состояние правила — карандашом, без цвета: цвет на листе только у решений. */
+.rules-work {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 12px;
+}
+.rules-row .row-top .rules-state {
+  margin-left: auto;
+}
+.rules-state {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid var(--rule);
+  padding: 0 5px;
+  color: var(--pencil);
+  background: var(--paper-2);
+}
+.rules-state.s-ACTIVE {
+  border-color: var(--graphite);
+  color: var(--graphite);
+}
+/* черновик — пунктиром, как спорная цифра; не проверяется и вне документов — бледно */
+.rules-state.s-DRAFT {
+  border-style: dashed;
+  border-color: var(--pencil);
+}
+.rules-state.s-NOT_CHECKED,
+.rules-state.s-OUT_OF_SCOPE {
+  color: var(--pale);
+}
+.rules-card {
+  overflow-y: auto;
+}
+.rules-card-body {
+  padding: 12px 16px 16px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-width: 96ch;
+}
+.rules-card-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.rules-card-head h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+.rules-card-head .tip-wrap {
+  margin-left: auto;
+}
+.rules-card h3 {
+  margin: 10px 0 2px;
+  font-family: var(--narrow);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.rules-matrix {
+  grid-template-columns: 136px 1fr;
+}
+.rules-logic {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--rule);
+  padding-top: 4px;
+}
+.rules-logic .kv {
+  grid-template-columns: 136px 1fr;
+}
+.rules-note {
+  margin: 0;
+  line-height: 1.5;
+  max-width: 88ch;
+}
+.rules-more > summary {
+  cursor: pointer;
+  font-family: var(--narrow);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pencil);
+  padding: 2px 0;
+}
+.rules-codes {
+  list-style: none;
+  margin: 4px 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.rules-codes li {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 1px 6px;
+  overflow-wrap: anywhere;
+}
+.rules-prompt {
+  margin: 4px 0;
+  padding: 4px 10px;
+  border-left: 3px solid var(--rule);
+  color: var(--pencil);
+  white-space: pre-wrap;
+  max-width: 88ch;
+}
+.rules-guidance {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.rules-guidance li {
+  line-height: 1.45;
+}
+.rules-guidance .mark {
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+/* Тип правила (#222): где живёт разбор значения. Без цвета, фактурой рамки — как состояния */
+.rules-engine {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid var(--pencil);
+  padding: 0 5px;
+  color: var(--pencil);
+  background: var(--paper-2);
+}
+.rules-engine.e-code {
+  background: var(--tint);
+  border-color: var(--graphite);
+  color: var(--graphite);
+}
+.rules-engine.e-llm {
+  border-style: dotted;
+  text-transform: none;
+}
+
+/* Проверка на объектах (#222, #223): трасса и песочница в карточке правила */
+.rules-check {
+  display: grid;
+  gap: 8px;
+  border-top: 1.5px solid var(--graphite);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+.rules-check p {
+  margin: 0;
+}
+.rules-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 14px;
+}
+.rules-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.rules-field .k {
+  font-family: var(--narrow);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pale);
+}
+.rules-field select,
+.rules-field input,
+.rules-field textarea {
+  border: 1px solid var(--pencil);
+  background: var(--paper-2);
+  padding: 3px 6px;
+  min-width: 0;
+}
+.rules-field textarea {
+  font-family: var(--mono);
+  font-size: 12px;
+  resize: vertical;
+}
+/* примерное время прогона — рядом с кнопкой, по нижнему краю строки */
+.rules-eta {
+  padding-bottom: 4px;
+}
+.rules-sandbox > summary {
+  cursor: pointer;
+  font-family: var(--narrow);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pencil);
+  padding: 2px 0;
+}
+.rules-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 14px;
+  padding: 8px 0 2px;
+}
+.rules-form .wide {
+  grid-column: 1 / -1;
+}
+.rules-run {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 8px 10px;
+}
+.rules-run-state {
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.rules-result,
+.rules-summary {
+  display: grid;
+  gap: 6px;
+}
+.rules-summary-head {
+  font-weight: 700;
+}
+.rules-trace {
+  display: grid;
+  gap: 6px;
+}
+.rules-trace-title {
+  margin-top: 4px;
+  font-family: var(--narrow);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.rules-stages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.rules-stage-head {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 2px;
+}
+.rules-cands,
+.rules-changes {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.rules-cands li {
+  border-left: 3px solid transparent;
+  padding-left: 6px;
+  overflow-wrap: anywhere;
+}
+/* выбранное значение стадии — чертой слева, как текущая строка списка */
+.rules-cands li.chosen {
+  border-left-color: var(--graphite);
+}
+.rules-chosen {
+  font-family: var(--narrow);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--graphite);
+}
+.rules-changes > li {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 4px;
+}
+.rules-was {
+  opacity: 0.75;
+}
+/* решение инспектора — решение человека: единственное, что на листе несёт цвет */
+.rules-decision {
+  color: var(--clarify-deep);
+  font-weight: 700;
+}
+
+@media (max-width: 1099px) {
+  .rules-work {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .rules-stages {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .rules-work {
+    grid-template-columns: 1fr;
+  }
+  .rules-matrix,
+  .rules-logic .kv {
+    grid-template-columns: 1fr;
+  }
+}

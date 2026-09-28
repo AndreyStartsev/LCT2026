@@ -1,0 +1,307 @@
+# Инспектор ИИ: весь сервис одной командой.
+#
+#   docker compose up --build
+#
+# Правила Матрицы в открытый репозиторий не входят: сборка воркера выкачивает их по токену.
+# Перед первой сборкой положите рядом с этим файлом .env со строкой RULES_TOKEN=<токен>
+# (образец — .env.example) или запустите ./build.sh: он спросит токен сам.
+#
+# Веб: http://localhost:8080   API и Swagger: http://localhost:3000/api/docs
+# Очередь: http://localhost:15672   Хранилище: http://localhost:9001
+# Заглушка ИАИС «РиН»: http://localhost:8090/mock/received
+# Мониторинг (по запросу): docker compose --profile monitoring up
+#   Prometheus: http://localhost:9090   Grafana: http://localhost:3001
+#
+# Паролей в этом файле нет. При первом запуске сервис secrets генерирует пароли базы
+# и хранилища и ключ подписи токенов в том secrets, остальные читают их из файлов.
+# Посмотреть пароль, например для консоли хранилища:
+#   docker compose run --rm secrets cat /secrets/minio_password
+#
+# Порты открыты только на этой машине. Переменные ниже переопределяются окружением
+# или файлом .env рядом с этим файлом.
+name: inspector-ai
+
+x-secrets-volume: &secrets-volume
+  - secrets:/secrets:ro
+
+x-database: &database
+  DATABASE_HOST: postgres
+  DATABASE_USER: inspector
+  DATABASE_NAME: inspector
+  DATABASE_PASSWORD_FILE: /secrets/postgres_password
+  REDIS_URL: redis://redis:6379
+  S3_ACCESS_KEY: inspector
+  S3_SECRET_KEY_FILE: /secrets/minio_password
+  S3_BUCKET: documents
+
+services:
+  secrets:
+    image: alpine:3.20
+    volumes:
+      - secrets:/secrets
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        for name in postgres_password minio_password jwt_secret grafana_password; do
+          if [ ! -s "/secrets/$$name" ]; then
+            head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' > "/secrets/$$name"
+          fi
+        done
+        chmod 644 /secrets/*
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inspector
+      POSTGRES_DB: inspector
+      POSTGRES_PASSWORD_FILE: /secrets/postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - secrets:/secrets:ro
+    depends_on:
+      secrets: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inspector -d inspector"]
+      interval: 3s
+      retries: 40
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 40
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      # Сколько брокер ждёт подтверждения доставки (consumer_timeout), мс. Воркер подтверждает шаг
+      # после конца, а разбор идёт часами. При умолчании брокера в 30 минут канал закрывался, и шаг
+      # выполнялся второй раз (Р-130). Срок должен быть больше предельного срока любого шага
+      # (TIMEOUT_<ШАГ>_MAX_S воркера, у разбора 6 ч). Канал берёт срок при открытии, поэтому
+      # правка в памяти брокера открытые каналы не меняет: новый срок — пересозданием контейнера
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit consumer_timeout ${RABBITMQ_CONSUMER_TIMEOUT_MS:-86400000}"
+    ports:
+      - "127.0.0.1:15672:15672"
+    # Узел RabbitMQ зовётся rabbit@<имя машины> и держит базу в каталоге с этим именем. Без hostname
+    # имя машины — id контейнера: пересозданный брокер заводил новую базу, и шаги, ждавшие в очередях,
+    # пропадали (Р-132). С постоянным именем и томом очереди переживают пересоздание контейнера
+    hostname: rabbitmq
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      retries: 40
+
+  minio:
+    # в Docker Hub образ minio/minio больше не раздаётся, официальный образ — в quay.io
+    image: quay.io/minio/minio:latest
+    # точка входа образа не читает пароль из файла, поэтому он подставляется оболочкой
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['MINIO_ROOT_PASSWORD="$$(cat /secrets/minio_password)" exec minio server /data --console-address ":9001"']
+    environment:
+      MINIO_ROOT_USER: inspector
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - miniodata:/data
+      - secrets:/secrets:ro
+    depends_on:
+      secrets: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      retries: 40
+
+  api:
+    build:
+      context: ./service
+      dockerfile: api/Dockerfile
+    environment:
+      <<: *database
+      AMQP_URL: amqp://rabbitmq:5672
+      S3_ENDPOINT: minio
+      S3_PORT: "9000"
+      JWT_SECRET_FILE: /secrets/jwt_secret
+      # учётные записи стенда; для любого другого контура задайте свои
+      AUTH_USERS: ${AUTH_USERS:-inspector:inspector:inspector,admin:admin:admin,expert:expert:expert}
+      # список моделей для способа чтения «модель» (#54): показывается на экране загрузки
+      # и проверяется при загрузке; читает ими воркер той же переменной. В умолчании — открытые
+      # Qwen, которые поднимаются на одной карте (#71, docs/model-research.html): 27B — выбор
+      # под прод, 35B-A3B — столько же памяти при трёх миллиардах активных, 8B — самая лёгкая,
+      # но зацикливается на трети трудных страниц. Линии flash и plus веса не публикуют.
+      PIPELINE_MODEL_CHOICES: ${PIPELINE_MODEL_CHOICES:-qwen/qwen3.6-27b=Qwen3.6 27B — выбор под прод 0.986 и 0.988,qwen/qwen3.6-35b-a3b=Qwen3.6 35B-A3B — 0.962 при 3B активных,qwen/qwen3-vl-8b-instruct=Qwen3-VL 8B — самая лёгкая 0.919 и зацикливания}
+      PIPELINE_MODEL_NAME: ${PIPELINE_MODEL_NAME:-}
+      # лимиты ТЗ; корпус организатора их превышает, см. вопрос организатору 18
+      MAX_FILE_MB: ${MAX_FILE_MB:-50}
+      MAX_PACKAGE_MB: ${MAX_PACKAGE_MB:-200}
+      # передача финализированного протокола в ИАИС «РиН»: на стенде — заглушка;
+      # повторы по ТЗ через 1, 5 и 15 минут, для показа их можно сократить, например 10,20,30
+      IAIS_URL: ${IAIS_URL:-http://iais:8090}
+      IAIS_RETRY_DELAYS_S: ${IAIS_RETRY_DELAYS_S:-60,300,900}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes: *secrets-volume
+    ports:
+      - "127.0.0.1:3000:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      minio: { condition: service_healthy }
+
+  worker:
+    build:
+      context: .
+      dockerfile: service/worker/Dockerfile
+      # токен доступа к закрытым правилам Матрицы — секретом сборки, в образ не попадает
+      secrets:
+        - rules_token
+    environment:
+      <<: *database
+      AMQP_URL: amqp://rabbitmq:5672/%2F
+      S3_ENDPOINT: minio:9000
+      PIPELINE_PAGES: ${PIPELINE_PAGES:-1}
+      # Распознавание сканов и углов листов включено: с 18.09 правила Матрицы читают
+      # распознанный текст страниц без текстового слоя (#52), и без него объект,
+      # пришедший сканами, не даёт решений вовсе — у контрольного объекта рабочая
+      # стадия на 94 % без слоя. Замер на шести потоках: 47 страниц в минуту на листах
+      # А0 и А1, 130 на чертежах поменьше, 225–285 на страницах записок; повторный
+      # прогон берёт готовое из кеша. Выключается PIPELINE_OCR=0.
+      PIPELINE_OCR: ${PIPELINE_OCR:-1}
+      # Модель по умолчанию включена, но читает прицельно: только сканы без текста и чертежи, у которых
+      # в текстовом слое меньше 40 слов (Р-117). Прочитать моделью все страницы нельзя ни здесь, ни в
+      # веб-форме. Без ключа или своей модели способ понижается до распознавания. 0 — без модели
+      PIPELINE_MODEL: ${PIPELINE_MODEL:-1}
+      # Способ чтения по умолчанию, когда инспектор не выбрал его при загрузке (#54):
+      # layer — только текстовый слой, tesseract — слой и распознавание, model (по умолчанию) — и модель
+      # на сканах без текста и чертежах без текстового слоя.
+      # Выбор инспектора сильнее этих флагов и записан у процесса.
+      PIPELINE_READING_MODE: ${PIPELINE_READING_MODE:-model}
+      # Адрес и имя модели: тот же режим работает и со своей моделью на своём железе,
+      # и через OpenRouter. Ключ нужен не всякому адресу — своя модель обычно без него.
+      PIPELINE_MODEL_URL: ${PIPELINE_MODEL_URL:-}
+      PIPELINE_MODEL_NAME: ${PIPELINE_MODEL_NAME:-}
+      # Что инспектор видит в списке моделей на экране загрузки: «id=Название» через запятую.
+      # Тот же список читает API — там он показывается и проверяется. Первая строка идёт
+      # по умолчанию, когда PIPELINE_MODEL_NAME не задан. В умолчании три открытых Qwen на одну
+      # карту (#71): 27B — выбор под прод, 35B-A3B — три миллиарда активных, 8B — самая лёгкая.
+      # Чтобы предложить инспектору другой набор, задайте свой список в .env.
+      PIPELINE_MODEL_CHOICES: ${PIPELINE_MODEL_CHOICES:-qwen/qwen3.6-27b=Qwen3.6 27B — выбор под прод 0.986 и 0.988,qwen/qwen3.6-35b-a3b=Qwen3.6 35B-A3B — 0.962 при 3B активных,qwen/qwen3-vl-8b-instruct=Qwen3-VL 8B — самая лёгкая 0.919 и зацикливания}
+      PIPELINE_MODEL_KEY_ENV: ${PIPELINE_MODEL_KEY_ENV:-}
+      PIPELINE_MODEL_MAX_TOKENS: ${PIPELINE_MODEL_MAX_TOKENS:-4000}
+      # Таблицы систем на листах без текстового слоя (сравнение по помещениям, #37) распознаются
+      # по ячейкам: два тома ОВ — 3–4 минуты на шаге сравнения, затем из кеша. 0 — пропускать.
+      PIPELINE_TABLE_OCR: ${PIPELINE_TABLE_OCR:-1}
+      # Черновики правил (#95, Р-89): после правил прода — черновики из rules/provisional, их
+      # нарушения идут в протокол гипотезами, в сдачу только решением инспектора. 0 — выключить.
+      PIPELINE_PROVISIONAL: ${PIPELINE_PROVISIONAL:-1}
+      # Прицельный проход по чертежам (#98, Р-118): вопрос модели по листу для правил `vlm_value`,
+      # значений которых в тексте нет, — до 40 новых вопросов на объект, ответы кешируются. Включён по
+      # умолчанию и идёт при любом способе чтения страниц, кроме «только слой», если модель настроена:
+      # ключ INSPECTOR_OPENROUTER_API_KEY или своя модель по PIPELINE_MODEL_URL. 0 — выключить
+      PIPELINE_VLM: ${PIPELINE_VLM:-1}
+      # Полный пересбор кешей разбора (pipeline/matrix_rules.py): all — текст страниц и кандидаты
+      # всех правил заново, text — слой PDF и текст, candidates — кандидаты всех правил;
+      # PIPELINE_FRESH_RULES — коды правил через запятую. Пусто — кеши стареют сами, вместе с кодом,
+      # правилами и текстом; пересбор нужен после правки, которую отпечаток кода не видит
+      PIPELINE_FRESH: ${PIPELINE_FRESH:-}
+      PIPELINE_FRESH_RULES: ${PIPELINE_FRESH_RULES:-}
+      # ключ модели передаётся только явно, под своим именем: ключ из .env конвейера сюда не попадает.
+      # Если PIPELINE_MODEL_KEY_ENV называет другую переменную, её сюда нужно добавить строкой ниже
+      OPENROUTER_API_KEY: ${INSPECTOR_OPENROUTER_API_KEY:-}
+      # реестр организатора для нового объекта: положите файл рядом с docker-compose.yml
+      # и укажите путь внутри контейнера, например ./manifests:/app/manifests:ro и
+      # INSPECTOR_MANIFESTS=/app/manifests/files_index.jsonl (docs/new-object.md)
+      INSPECTOR_MANIFESTS: ${INSPECTOR_MANIFESTS:-}
+      # Шесть потоков — предел этой машины: на восьми и десяти скорость падает,
+      # Tesseract сам многопоточный и потоки начинают мешать друг другу. Текст от числа
+      # потоков не зависит: при 4, 6, 8 и 10 он совпал посимвольно (#52).
+      PIPELINE_PAGE_WORKERS: ${PIPELINE_PAGE_WORKERS:-6}
+      PIPELINE_OCR_WORKERS: ${PIPELINE_OCR_WORKERS:-6}
+      MAX_RETRIES: ${MAX_RETRIES:-2}
+      TIMEOUT_PARSE_S: ${TIMEOUT_PARSE_S:-7200}
+      # После срока шаг с ходом не снимается до предельного срока, а молчащий дольше
+      # STALL_TIMEOUT_S — снимается и повторяется (#113)
+      TIMEOUT_PARSE_MAX_S: ${TIMEOUT_PARSE_MAX_S:-21600}
+      STALL_TIMEOUT_S: ${STALL_TIMEOUT_S:-1800}
+    volumes:
+      - secrets:/secrets:ro
+      # кеш чтения адресован SHA-256 содержимого и лежит в репозитории:
+      # уже прочитанные документы не читаются заново ни здесь, ни на другой машине
+      - ./.cache:/app/.cache
+      - work:/work
+    depends_on:
+      api: { condition: service_healthy }
+
+  iais:
+    # заглушка ИАИС «РиН» из образа API; режим меняется POST /mock/mode {"mode": "ok|fail|reject|slow"}
+    build:
+      context: ./service
+      dockerfile: api/Dockerfile
+    command: ["node", "dist/iais-mock.js"]
+    environment:
+      PORT: "8090"
+      IAIS_MOCK_MODE: ${IAIS_MOCK_MODE:-ok}
+    ports:
+      - "127.0.0.1:8090:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/health >/dev/null || exit 1"]
+      interval: 5s
+      retries: 20
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["monitoring"]
+    volumes:
+      - ./service/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./service/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      api: { condition: service_healthy }
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["monitoring"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /secrets/grafana_password
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/inspector.json
+    volumes:
+      - secrets:/secrets:ro
+      - ./service/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./service/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+
+  web:
+    build:
+      context: ./service/web
+    environment:
+      # лимит тела запроса nginx следует за лимитом пакета, запас на multipart прибавит
+      # service/web/10-body-limit.envsh; подставляется только эта переменная
+      MAX_PACKAGE_MB: ${MAX_PACKAGE_MB:-200}
+      NGINX_ENVSUBST_FILTER: "^MAX_BODY_MB$$"
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  secrets:
+  pgdata:
+  miniodata:
+  rabbitmqdata:
+  work:
+
+secrets:
+  # строка RULES_TOKEN из .env: по ней сборка воркера выкачивает правила (rules/README.md)
+  rules_token:
+    environment: RULES_TOKEN

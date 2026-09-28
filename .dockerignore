@@ -1,0 +1,26 @@
+# контекст сборки воркера — корень репозитория, корпус и кеши в него не нужны
+.git
+# токены и ключи идут в сборку только секретом, а не файлом
+.env
+.env.*
+data
+.cache
+build
+bench
+svod
+generated_constructions
+scoring
+tools
+tests
+**/node_modules
+**/dist
+**/__pycache__
+*.pdf
+# производное от закрытых файлов организатора в образ не кладём
+docs/extracted/public_gold_checks.jsonl
+rehearsal
+# веса эмбеддингов в образ не идут (#79, Р-127); локальные 2,8 ГБ в контекст сборки не нужны
+models/embeddings/*.onnx
+models/embeddings/model.onnx_data
+models/embeddings/Constant_7_attr__value
+models/embeddings/*.part

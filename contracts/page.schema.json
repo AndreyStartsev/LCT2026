@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mosstroynadzor.local/contracts/page.schema.json",
+  "title": "Запись постраничного индекса",
+  "description": "Страница документа с прочитанным текстом и связкой номеров. Номер листа из основной надписи НЕ равен номеру страницы PDF: в эталоне организатора лист 26 тома ИОС5.4.2 это страница 104. В доказательство при сдаче уходит pdf_page_number, а перечень нарушений оперирует номером листа, поэтому хранить надо оба.",
+  "type": "object",
+  "required": ["file_id", "pdf_page_number", "kind", "text_source"],
+  "properties": {
+    "file_id": { "type": "string", "pattern": "^F[0-9]{4}$" },
+    "pdf_page_number": { "type": "integer", "minimum": 1 },
+    "document_sheet_number": {
+      "type": ["integer", "null"],
+      "description": "Номер листа из основной надписи по ГОСТ Р 21.101-2020"
+    },
+    "kind": {
+      "enum": ["TEXT", "DENSE_TEXT", "DRAWING", "SCAN_SPARSE", "SCAN_NO_TEXT"],
+      "description": "Тип страницы; определяется по плотности текстового слоя и соотношению сторон"
+    },
+    "text_source": {
+      "enum": ["TEXT_LAYER", "TESSERACT", "UNION", "MODEL", "XML", "NONE"],
+      "description": "Чем получен текст. UNION означает склейку слоя и распознавания."
+    },
+    "text": { "type": "string" },
+    "rotation": { "type": "integer", "enum": [0, 90, 180, 270] },
+    "width_pt": { "type": "number" },
+    "height_pt": { "type": "number" },
+    "rooms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Номера помещений, найденные на странице. Основной ключ адресации в эталоне организатора."
+    },
+    "quality": { "enum": ["OK", "LOW_QUALITY", "ABSTAIN"], "default": "OK" }
+  },
+  "additionalProperties": true
+}

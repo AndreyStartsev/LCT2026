@@ -1,0 +1,94 @@
+# Открытый репозиторий «Инспектора ИИ». Всё, что ниже, в него не попадает.
+
+# Ключи и токены: .env с токеном доступа к правилам и ключом модели. Образец — .env.example
+.env
+.env.*
+!.env.example
+
+# Правила Матрицы — закрытые. Сборка выкачивает их по токену RULES_TOKEN (rules/README.md),
+# в открытом репозитории остаются только описание, манифест с суммами и скрипт выкачивания
+rules/*
+!rules/README.md
+!rules/manifest.json
+!rules/fetch.py
+
+# Кеш чтения и результаты прогонов: внутри текст документов корпуса, находки и протоколы
+.cache/
+build/
+
+# Корпус документов организатора и документы вообще
+data/
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.key
+*.dwg
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+
+# Документы, презентация, отчёты: из docs/ — только данные, которые читает конвейер
+docs/*
+!docs/extracted/
+docs/extracted/*
+!docs/extracted/document_manifest.jsonl
+!docs/extracted/parameter_catalog_132.jsonl
+!docs/extracted/split_policy.json
+!docs/extracted/multi_object/
+*.html
+!service/web/index.html
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.mov
+
+# Маркдауны — только README
+*.md
+!README.md
+
+# Эмбеддинги и веса моделей
+models/
+*.onnx
+*.onnx_data
+*.safetensors
+*.gguf
+*.bin
+
+# Внутренние файлы: замеры качества, стенд сравнения, скорер, эталоны, репетиция, черновые папки
+bench/
+scoring/
+rehearsal/
+svod/
+generated_constructions/
+tools/*
+!tools/README.md
+!tools/upload_object.py
+!tools/fix_filenames.py
+
+# Настройки Claude и редакторов
+.claude/
+CLAUDE.md
+.vscode/
+.idea/
+
+# Зависимости и сборка. node_modules без косой черты: бывает символьной ссылкой
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules
+service/api/dist/
+service/web/dist/
+service/web/*.tsbuildinfo
+.DS_Store
+desktop.ini

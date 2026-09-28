@@ -1,0 +1,21 @@
+# Демо-стенд «Инспектор ИИ»: TLS от Let's Encrypt и один вход на весь сервис.
+{$DEMO_DOMAIN}, www.{$DEMO_DOMAIN} {
+	encode zstd gzip
+	# пакет документов идёт одним запросом; лимит браузера держит nginx клиента по MAX_PACKAGE_MB.
+	# У маршрута загрузчика папки объекта лимита нет (Р-110): тома ИД бывают под гигабайт
+	@not_loader not path /api/v1/documents/bulk
+	request_body @not_loader {
+		max_size 4GB
+	}
+	reverse_proxy web:80 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}
+
+grafana.{$DEMO_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy grafana:3000
+}

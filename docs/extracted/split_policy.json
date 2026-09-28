@@ -1,0 +1,18 @@
+{
+  "TRAIN_PUBLIC": [
+    "OBJ-TYUMENSKAYA-5-GOLD-SEED",
+    "OBJ-NOVOSLOBODSKAYA"
+  ],
+  "TEST_HIDDEN": [
+    "OBJ-RECHNIKOV-7-7"
+  ],
+  "do_not_release": [
+    "all_gold_checks.jsonl",
+    "review_queue.jsonl",
+    "evidence_index.jsonl for TEST_HIDDEN"
+  ],
+  "excluded_file_ids": [
+    "F0149",
+    "F0418"
+  ]
+}

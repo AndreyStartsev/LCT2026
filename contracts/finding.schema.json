@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mosstroynadzor.local/contracts/finding.schema.json",
+  "title": "Находка (доказательная группа)",
+  "description": "Внутренняя единица результата: объект + параметр или правило + сопоставимые редакции + доказательные фрагменты. Надмножество записи сдачи: проекцией в submission.schema.json занимается экспорт. Форма продиктована перечнем нарушений организатора, где каждое нарушение это лист проектной документации против чертежа рабочей, адресованное номером помещения.",
+  "type": "object",
+  "required": ["finding_id", "object_id", "matrix_scope", "comparison_result", "violation_label", "evidence"],
+  "properties": {
+    "finding_id": { "type": "string" },
+    "object_id": { "type": "string" },
+    "matrix_scope": { "enum": ["MATRIX", "FREE_SEARCH"] },
+    "parameter_code": {
+      "type": ["string", "null"],
+      "description": "Код из Матрицы, например IOS4-079. Для свободного поиска префикс FREE-, например FREE-HEATING-001."
+    },
+    "parameter_id": { "type": ["integer", "null"], "minimum": 1, "maximum": 132 },
+    "title": { "type": "string", "description": "Формулировка нарушения на языке инспектора" },
+    "comparison_result": {
+      "$comment": "Словарь открытый: организатор заводит значения под случай. Перечень ниже — наши значения плюс все встреченные в его эталоне.",
+      "enum": ["CONFIGURATION_MISMATCH", "MISSING_DESIGN_ELEMENT", "VALUE_MISMATCH",
+               "CLASS_DOWNGRADE", "DIMENSION_REDUCED", "COUNT_MISMATCH", "NAMING_MISMATCH",
+               "VALUE_DECREASE", "EQUAL_PD_RD", "EQUAL_ALL_AVAILABLE_STAGES",
+               "EQUAL_AFTER_DECIMAL_NORMALIZATION", "NON_TRIGGERING_DIFFERENCE_NO_DECREASE",
+               "NO_POSITION_REDUCTION", "DRAINAGE_NOT_EXCLUDED"]
+    },
+    "location_type": { "enum": ["ROOM", "AXES", "ELEVATION", "SECTION", "OBJECT", "CONSTRUCTION_ELEMENT", "SITE"] },
+    "locations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Например [\"267\",\"270\",\"271\",\"272\"]. Совпадение хотя бы одной локации считается попаданием при сверке с эталоном."
+    },
+    "pd_value": {}, "rd_value": {}, "id_value": {},
+    "violation_label": { "enum": ["VIOLATION_PRESENT", "NO_VIOLATION", "MISSING_DOCUMENT", "COMPARISON_IMPOSSIBLE"] },
+    "protocol_status": { "enum": ["OK", "WARNING", "CRITICAL", "ID_MISSING", "RD_MISSING", "PD_MISSING", "COMPARISON_IMPOSSIBLE"] },
+    "criticality": { "type": ["string", "null"] },
+    "finding_status": {
+      "enum": ["CANDIDATE", "CONFIRMED_VIOLATION", "NEGATIVE_VERIFIED", "MISSING_EVIDENCE",
+               "NOT_APPLICABLE", "NOT_COMPARABLE", "CLARIFICATION_REQUIRED", "SUSPICION"],
+      "default": "CANDIDATE",
+      "description": "CONFIRMED_VIOLATION проставляет только инспектор. Система выдаёт CANDIDATE или NEGATIVE_VERIFIED."
+    },
+    "inspector": {
+      "type": ["object", "null"],
+      "properties": {
+        "user_id": { "type": "string" },
+        "decision_at": { "type": "string", "format": "date-time" },
+        "reason_code": { "enum": ["WRONG_REVISION", "APPROVED_CHANGE", "OCR_ERROR", "LINKING_ERROR", "NOT_APPLICABLE"] },
+        "comment": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["stage", "file_id", "pdf_page_number"],
+        "properties": {
+          "stage": { "enum": ["PD", "RD", "ID"] },
+          "file_id": { "type": "string", "pattern": "^(F[0-9]{4}|L[0-9]{4}|L-[A-Za-z0-9_-]+)$" },
+          "pdf_page_number": { "type": "integer", "minimum": 1 },
+          "document_sheet_number": { "type": ["integer", "null"] },
+          "document_code": { "type": ["string", "null"] },
+          "revision": { "type": ["string", "null"] },
+          "quote": { "type": "string", "description": "Фрагмент текста, на котором основан вывод" },
+          "localization": { "enum": ["PAGE_LEVEL", "PAGE_LEVEL_VISUALLY_VERIFIED", "BBOX"], "default": "PAGE_LEVEL" },
+          "bbox_norm": {
+            "type": ["array", "null"],
+            "items": { "type": "number", "minimum": 0, "maximum": 1 },
+            "minItems": 4, "maxItems": 4,
+            "description": "Необязательно: в схеме сдачи организатора bbox отсутствует, проверка идёт по файлу и странице."
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "versions": {
+      "type": "object",
+      "description": "Версии, которые ТЗ требует фиксировать в каждом запуске",
+      "properties": {
+        "matrix_version": { "type": "string" },
+        "dataset_version": { "type": "string" },
+        "model_version": { "type": "string" },
+        "input_manifest_hash": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

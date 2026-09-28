@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mosstroynadzor.local/contracts/document.schema.json",
+  "title": "Запись реестра документов",
+  "description": "Одна строка реестра файлов объекта. file_id совпадает с идентификатором из реестра организатора: именно он попадает в доказательство при сдаче.",
+  "type": "object",
+  "required": [
+    "file_id",
+    "object_id",
+    "stage",
+    "relative_path",
+    "sha256",
+    "pdf_pages"
+  ],
+  "properties": {
+    "file_id": {
+      "type": "string",
+      "pattern": "^F[0-9]{4}$"
+    },
+    "object_id": {
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "PD",
+        "RD",
+        "ID",
+        "RD_ID_MIXED",
+        "UNKNOWN"
+      ]
+    },
+    "section": {
+      "type": "string",
+      "description": "Раздел: PZ, GP, AR, KR, EOM, VK, OV, SS, TX, POS, POD, OOS, PB, ODI, EE, BE, SM, OTHER. Для файлов организатора берётся из его реестра, если там не OTHER; иначе определяется командой revisions (#10)"
+    },
+    "document_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Шифр: самый конкретный из частых шифров основной надписи, если в нём есть марка из имени файла, иначе шифр из имени. У исполнительной документации только из имени: её штамп копирует штамп листа РД"
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Редакция словами, например «кор. 3.1», «изм. 4, в1», «корр. ГИП», «переиздание по замечаниям»"
+    },
+    "approval_status": {
+      "enum": [
+        "APPROVED",
+        "NOT_APPROVED",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN",
+      "description": "APPROVED, если в имени ЭЦП, МГЭ или РнС либо рядом лежит файл подписи .sig"
+    },
+    "approval_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "predecessor_file_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Предыдущая редакция в цепочке, только если порядок определён однозначно"
+    },
+    "relative_path": {
+      "type": "string"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "pdf_pages": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stage_detected": {
+      "enum": [
+        "PD",
+        "RD",
+        "ID",
+        "RD_ID_MIXED",
+        "UNKNOWN"
+      ],
+      "description": "Стадия по своим правилам, без реестра организатора. У файлов организатора stage не меняется"
+    },
+    "stage_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "FOLDER",
+        "DOCUMENT_TYPE",
+        "CODE",
+        null
+      ]
+    },
+    "section_detected": {
+      "type": "string",
+      "description": "Раздел по своим правилам"
+    },
+    "section_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "MARK",
+        "FOLDER_MARK",
+        "FOLDER_TITLE",
+        "PP87_NUMBER",
+        "DESCRIPTOR",
+        "TITLEBLOCK_MARK",
+        null
+      ]
+    },
+    "mark": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Марка документа: ИОС5.4.2, КЖ1.1.4, КР4.РР, ПЗУ; ТОМ5.4.2, если в имени только номер тома"
+    },
+    "part": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Корпус и книга: К1, КН3"
+    },
+    "document_code_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "TITLEBLOCK",
+        "NAME",
+        null
+      ]
+    },
+    "revision_detail": {
+      "type": "object",
+      "description": "Разобранные отметки: change, change_titleblock, change_effective, correction, correction_sub, version, by_comments, gip, generic_correction, edited, package_version, dates, month_date, copy_suffix, year_suffix"
+    },
+    "approval_evidence": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "E_SIGNATURE",
+          "STATE_EXPERTISE",
+          "BUILDING_PERMIT_PACKAGE",
+          "ISSUED_FOR_CONSTRUCTION",
+          "E_SIGNATURE_FILE"
+        ]
+      }
+    },
+    "successor_file_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "chain_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Цепочка редакций из revisions.jsonl"
+    },
+    "revision_status": {
+      "enum": [
+        "CURRENT",
+        "SUPERSEDED",
+        "DUPLICATE",
+        "CLARIFICATION_REQUIRED"
+      ],
+      "description": "Место документа в цепочке. CLARIFICATION_REQUIRED — актуальную редакцию не определить без человека"
+    }
+  },
+  "additionalProperties": true
+}
