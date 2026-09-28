@@ -49,6 +49,15 @@
 Если в рабочей стадии помещение разделено — рядом с номером появились подномера того же помещения
 («002.1 Коридор»), которых в проекте нет, — площадь проекта сравнивается с суммой частей (#114).
 
+**Площадь — только в пределах одного места (Р-156).** Место таблицы — часть здания, корпус, секция
+и этаж из её заголовка (`place_of`). Если обе стадии называют место у каждой строки номера с
+площадью и ни одна пара мест не совпадает, площади не сверяются: под одним номером разные
+помещения. У Полярной 17 номер 6 в проекте стоит в «Корпус 1. Секция 1. Экспликация помещений
+1-го этажа», в рабочей стадии — в «Экспликации помещений автостоянки», и комната персонала 11,56 м²
+сравнивалась с тамбур-шлюзом автостоянки 4,53 м². Строка без места в заголовке совпадает с любым
+местом: этаж часто назван только в одной стадии (Тюменская-5: в проекте «1-го этажа», в томах ОВ
+рабочей стадии — без этажа), и там сверка прежняя. Правило только снимает сверку, новых не добавляет.
+
 Гипотезы помечены `for_submission: false`: в файл сдачи они не идут, пока инспектор не взял их
 в кандидаты (ТЗ 9.2), — лишняя гипотеза в сдаче стоит балла, а подтверждённых точек такого
 вида в эталоне нет. Исключение — вид, который специалист подтвердил нарушением: площади
@@ -161,6 +170,11 @@ class Explications:
 
     def has_area(self, stage, number):
         return any(r.get("area_m2") for r in self.by_stage[stage].get(number, []))
+
+    def places(self, stage, number, words):
+        """Места таблиц, где номер стоит с площадью и тем же наименованием (Р-156): [место или None]."""
+        return [place_of(r.get("table")) for r in self.by_stage[stage].get(number, [])
+                if r.get("area_m2") and room_names.same(room_names.name_words(r.get("name")), words) is not False]
 
     def categories(self, stage, number, words=None):
         """Категории номера в стадии по записям с тем же наименованием: {категория: [(файл, страница)]}.
@@ -310,6 +324,7 @@ def compare(object_id, rows, names=None, text_of=None, superseded=(), volumes=No
                "в обеих": len(pd_numbers & rd_numbers), "сверено": 0,
                "пропало": 0, "площадь": 0, "категория": 0, "площадь: стадия не согласна сама с собой": 0,
                "площадь: помещение разделено, сумма та же": 0,
+               "площадь: в заголовках экспликаций разные места": 0,
                "пропало: номер есть в тексте страницы": 0, "пропало: проект сам с собой не согласен": 0,
                "не обновлено после корректировки проекта": 0,
                "строк заменённых редакций": dropped,
@@ -354,6 +369,10 @@ def compare(object_id, rows, names=None, text_of=None, superseded=(), volumes=No
         summary["сверено"] += 1
         pd_area, pd_share, pd_others = area_of(ex.areas("PD", number, pd_words))
         rd_area, rd_share, rd_others = area_of(ex.areas("RD", number, rd_words))
+        if pd_area and rd_area and apart(ex.places("PD", number, pd_words), ex.places("RD", number, rd_words)):
+            # номер один, а таблицы описывают разные места — помещения разные (Р-156)
+            summary["площадь: в заголовках экспликаций разные места"] += 1
+            pd_area = rd_area = None
         shown, pd_name = ex.shown_number[("PD", number)], ex.shown("PD", number)
         # корректировка проекта изменила площадь, а часть томов рабочей стадии — по прежней редакции
         old_area, old_share, _ = area_of(old_pd.areas("PD", number, pd_words))
@@ -450,6 +469,47 @@ def floor_of(title):
         if m:
             return label(m)
     return None
+
+
+# Место таблицы по заголовку (Р-156): кроме этажа — корпус, секция и часть здания
+BUILDING = re.compile(r"корпус\w*\s*№?\s*(\d+)", re.I)
+SECTION = re.compile(r"секци\w*\s*№?\s*(\d+)", re.I)
+PARKING = re.compile(r"автостоянк|паркинг", re.I)
+
+
+def place_of(title):
+    """Место таблицы экспликации: {"part", "building", "section", "floor"}; None — в заголовке не названо.
+
+    «Корпус 1. Секция 1. Экспликация помещений 1-го этажа» → корпус 1, секция 1, 1 этаж;
+    «Экспликация помещений автостоянки» → часть здания «автостоянка».
+    """
+    place = {}
+    floor = floor_of(title)
+    if floor:
+        place["floor"] = floor
+    for key, pattern in (("building", BUILDING), ("section", SECTION)):
+        m = pattern.search(title or "")
+        if m:
+            place[key] = int(m.group(1))
+    if PARKING.search(title or ""):
+        place["part"] = "автостоянка"
+    return place or None
+
+
+def same_place(a, b):
+    """Могут ли две таблицы описывать одно место: часть здания одна (без неё в заголовке — само здание),
+    а корпус, секция и этаж, названные в обоих заголовках, совпадают."""
+    if a.get("part", "здание") != b.get("part", "здание"):
+        return False
+    return all(a[k] == b[k] for k in ("building", "section", "floor") if k in a and k in b)
+
+
+def apart(pd_places, rd_places):
+    """Разные ли помещения под одним номером по местам таблиц (Р-156): обе стадии называют место у каждой
+    строки с площадью, и ни одна пара мест не совпадает. Строка без места совпадает с любым местом."""
+    if not pd_places or not rd_places or None in pd_places or None in rd_places:
+        return False
+    return not any(same_place(a, b) for a in pd_places for b in rd_places)
 
 
 def _name_key(name):

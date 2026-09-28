@@ -4,7 +4,8 @@
 
 Проверяется на действующем `rules/specialist_guidance.json`: файл — и есть решение, и тест держит
 его смысл — подтверждённые виды в сдаче, остальные гипотезами с пометкой специалиста, виды
-«низкий приоритет» видны с пометкой и доводом против (решение пользователя 26.09). Решений по
+«низкий приоритет» видны с пометкой и доводом против (решение пользователя 26.09), а «элемент
+проекта не найден в РД» КР, АР и ЭОМ в сдачу не идёт (решение пользователя 28.09, Р-155). Решений по
 отдельной записи нет (Р-116), а пометки короткие: слово решения и одна-две фразы по существу.
 """
 import json
@@ -94,10 +95,14 @@ def round4_kinds():
                 all(f["for_submission"] is None for f in (vk, rev, prof)))
     drops = [by[(c, "VIOLATION_PRESENT")] for c in ("FREE-KR-DESIGN-ELEMENT", "FREE-AR-DESIGN-ELEMENT",
                                                     "FREE-EOM-DESIGN-ELEMENT")]
-    ok &= check("элемент ПД не найден по КР, АР, ЭОМ: «низкий приоритет» пометкой, в сдачу — как собрал разбор",
-                all(f["specialist"]["verdict"] == "drop" and f["for_submission"] is None
+    ok &= check("элемент ПД не найден по КР, АР, ЭОМ: «низкий приоритет» пометкой и не в сдачу (Р-155)",
+                all(f["specialist"]["verdict"] == "drop" and f["for_submission"] is False
+                    and f["exclusion_reason"] == specialist.HELD and f["finding_status"] == "SUSPICION"
                     and "Специалист о таких записях: низкий приоритет." in f["extraction"]["detail"] for f in drops),
                 drops[0]["extraction"]["detail"])
+    ov = by[("FREE-OV-DESIGN-ELEMENT", "VIOLATION_PRESENT")]
+    ok &= check("элемент ПД не найден по ОВ (тёплые полы Тюменской — эталон организатора) — в сдачу, как собрал разбор",
+                ov["for_submission"] is None and "exclusion_reason" not in ov)
     ok &= check("довод против — «3 из 8» у КР, АР, ЭОМ, «8 из 12» у ВК; у ОВ своего довода нет",
                 all("3 из 8" in f["extraction"]["confidence"]["low"][-1] for f in drops)
                 and "8 из 12" in vk["extraction"]["confidence"]["low"][-1]
@@ -112,7 +117,13 @@ def round4_kinds():
                 act["specialist"]["verdict"] == "drop" and "нарушением не считает" in act["specialist"]["note"]
                 and act["for_submission"] is None and "confidence" not in act["extraction"], act["specialist"]["note"])
     ok &= check("дата четвёртого круга — у вида, а не общая", vk["specialist"]["reviewed"] == "26.09.2026")
-    ok &= check("сводка считает вид «низкий приоритет»", stats.get("вид «низкий приоритет»") == 4, str(stats))
+    ok &= check("сводка считает вид «низкий приоритет» и снятые со сдачи",
+                stats.get("вид «низкий приоритет»") == 4 and stats.get("снято со сдачи") == 3, str(stats))
+    held = rec("FREE-EOM-DESIGN-ELEMENT")
+    held["exclusion_reason"] = "прежняя причина"
+    specialist.apply([held])
+    ok &= check("запись уже не для сдачи — причина своя, в сводку снятых не идёт",
+                held["for_submission"] is False and held["exclusion_reason"] == "прежняя причина")
     return ok
 
 

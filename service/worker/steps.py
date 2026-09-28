@@ -388,9 +388,24 @@ def step_parse(conn, process):
     # до распознавания — но инспектор узнаёт об этом, иначе он ждёт разбора, которого не было.
     asked = process.get("reading_mode")
     mode, use_ocr, use_model = settings.reading_flags(asked)
+    # Своя модель на своём железе проверяется до разбора: не поднялась — страницы читает
+    # запасной адрес, а без него объект читается распознаванием, и инспектор узнаёт об этом
+    route, route_why = (settings.model_route(progress=lambda why, left: infra.progress(
+        pid, "parse", f"Ожидание модели ({why}), ещё до {left:.0f} с")) if use_model else ("main", None))
+    if route is None:
+        mode, use_model = "tesseract", False
     model = (settings.model_for(process.get("model_name")) or reading.model_name()) if use_model else None
-    print(f"способ чтения: {readiness.mode_line({'reading_mode': mode, 'model_name': model})}")
-    if asked == "model" and mode != "model":
+    print(f"способ чтения: {readiness.mode_line({'reading_mode': mode, 'model_name': model})}"
+          + (f"; {route_why}, " + ("читает запасной адрес" if route == "fallback" else "запасного нет")
+             if route_why else ""))
+    if route is None:
+        infra.notify(conn, "inspector", "WARNING",
+                     f"Модель недоступна: {route_why}, запасного адреса нет. Объект прочитан распознаванием",
+                     pid, category="ACTION")
+    elif route == "fallback":
+        infra.notify(conn, "inspector", "WARNING",
+                     f"Модель: {route_why}. Страницы читает модель по запасному адресу", pid, category="QUALITY")
+    elif asked == "model" and mode != "model":
         infra.notify(conn, "inspector", "WARNING",
                      "Выбрано чтение с моделью, но модель не настроена: объект прочитан распознаванием", pid,
                      category="ACTION")

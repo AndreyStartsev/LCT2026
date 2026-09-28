@@ -1,0 +1,52 @@
+# Модель чтения — уже работающий сервер с API OpenAI: Ollama, vLLM, SGLang, llama.cpp,
+# LM Studio или облачный сервис. Надстройка кладётся поверх любого стенда. Подробно — deploy/LLM.md.
+#
+# Стенд разработки (без своей модели в compose):
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.llm-external.yml up -d worker api
+#
+# Поставка на стенд проверки — встроенный сервер модели не поднимать (--scale llm=0):
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.release.yml \
+#     -f deploy/docker-compose.llm-external.yml up -d --scale llm=0
+#
+# Задать в .env:
+#   LLM_URL      адрес .../v1/chat/completions; сервер на этой же машине:
+#                macOS и Windows (Docker Desktop, Rancher Desktop) — http://host.docker.internal:<порт>/v1/...
+#                Linux — http://model-host:<порт>/v1/..., сервер должен слушать не только 127.0.0.1
+#   LLM_MODEL    имя модели на этом сервере, например qwen2.5vl:7b или Qwen/Qwen3.6-27B-FP8
+#   LLM_SERVER   vllm (vLLM, SGLang, llama.cpp) | ollama | openai (прочие) — каким полем
+#                выключать размышление модели
+# Необязательно: LLM_API_KEY, LLM_LABEL, LLM_EXTRA_BODY (JSON), LLM_TIMEOUT_S, LLM_WAIT_S,
+# LLM_MAX_PX (предел картинки листа для модели), LLM_MAX_TOKENS.
+#
+# Запасной адрес — OpenRouter, только если задан INSPECTOR_OPENROUTER_API_KEY: сервер модели
+# не ответил — страница читается там. Без ключа — распознаванием, с уведомлением инспектору.
+services:
+  worker:
+    extra_hosts:
+      # имя хоста для Linux; на Docker Desktop и Rancher Desktop хост уже виден как host.docker.internal
+      - "model-host:host-gateway"
+    environment:
+      PIPELINE_READING_MODE: ${PIPELINE_READING_MODE:-model}
+      PIPELINE_MODEL: ${PIPELINE_MODEL:-1}
+      PIPELINE_MODEL_URL: ${LLM_URL:?задайте LLM_URL — адрес сервера модели, .../v1/chat/completions}
+      PIPELINE_MODEL_NAME: ${LLM_MODEL:?задайте LLM_MODEL — имя модели на этом сервере}
+      # проход по чертежам (#98, Р-113) спрашивает ту же модель: другого имени этот сервер не знает;
+      # предел картинки тоже тот же, иначе лист А1 в 5000 px не влезет в контекст малой модели
+      PIPELINE_VLM_MODEL: ${LLM_MODEL}
+      PIPELINE_VLM_MAX_PX: ${LLM_MAX_PX:-}
+      PIPELINE_MODEL_CHOICES: ${LLM_MODEL}=${LLM_LABEL:-своя модель}
+      PIPELINE_MODEL_SERVER: ${LLM_SERVER:-vllm}
+      PIPELINE_MODEL_KEY_ENV: LLM_API_KEY
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      PIPELINE_MODEL_EXTRA_BODY: ${LLM_EXTRA_BODY:-}
+      PIPELINE_MODEL_TIMEOUT_S: ${LLM_TIMEOUT_S:-600}
+      PIPELINE_MODEL_WAIT_S: ${LLM_WAIT_S:-60}
+      PIPELINE_MODEL_MAX_PX: ${LLM_MAX_PX:-}
+      PIPELINE_MODEL_FLAT_PX: ${LLM_MAX_PX:-}
+      PIPELINE_MODEL_MAX_TOKENS: ${LLM_MAX_TOKENS:-4000}
+      PIPELINE_MODEL_FALLBACK_URL: ${PIPELINE_MODEL_FALLBACK_URL:-https://openrouter.ai/api/v1/chat/completions}
+      PIPELINE_MODEL_FALLBACK_KEY_ENV: OPENROUTER_API_KEY
+
+  api:
+    environment:
+      PIPELINE_MODEL_CHOICES: ${LLM_MODEL}=${LLM_LABEL:-своя модель}

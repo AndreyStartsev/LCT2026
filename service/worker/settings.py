@@ -97,8 +97,82 @@ def _model_choices():
 MODEL_CHOICES = _model_choices()
 MODEL_NAME = os.environ.get("PIPELINE_MODEL_NAME") or (MODEL_CHOICES[0]["id"] if MODEL_CHOICES else "")
 MODEL_KEY_ENV = os.environ.get("PIPELINE_MODEL_KEY_ENV") or "OPENROUTER_API_KEY"
-MODEL_READY = bool(os.environ.get(MODEL_KEY_ENV)) or "openrouter.ai" not in MODEL_URL
+# Запасной адрес (pipeline/reading.py): своя модель не ответила — страница уходит туда.
+# Для OpenRouter он годен только с ключом; без запасного стенд работает как раньше.
+MODEL_FALLBACK_URL = os.environ.get("PIPELINE_MODEL_FALLBACK_URL") or ""
+MODEL_FALLBACK_KEY_ENV = os.environ.get("PIPELINE_MODEL_FALLBACK_KEY_ENV") or "OPENROUTER_API_KEY"
+# Сколько ждать свою модель в начале разбора: сервер модели поднимается минутами (веса,
+# сборка ядер), а объект могут загрузить сразу после запуска. 0 — не ждать.
+MODEL_WAIT_S = float(os.environ.get("PIPELINE_MODEL_WAIT_S") or 0)
+
+
+def _is_openrouter(url):
+    return "openrouter.ai" in (url or "")
+
+
+def _address_ready(url, key_env):
+    return bool(url) and (bool(os.environ.get(key_env)) or not _is_openrouter(url))
+
+
+MAIN_READY = _address_ready(MODEL_URL, MODEL_KEY_ENV)
+FALLBACK_READY = bool(MODEL_FALLBACK_URL) and MODEL_FALLBACK_URL != MODEL_URL \
+    and _address_ready(MODEL_FALLBACK_URL, MODEL_FALLBACK_KEY_ENV)
+MODEL_READY = MAIN_READY or FALLBACK_READY
 USE_MODEL = _flag("PIPELINE_MODEL", READING_MODE == "model") and MODEL_READY
+
+
+def probe_model(url, timeout=5, key_env=None):
+    """Отвечает ли сервер модели: (да ли, почему нет, сетевой ли отказ).
+
+    Спрашивается список моделей (`/v1/models` рядом с `/v1/chat/completions`) — его отдают
+    vLLM, SGLang, Ollama и llama.cpp, и он не тратит карту. Сетевой отказ без имени
+    (контейнер модели остановлен) ждать бессмысленно, отвергнутое соединение — можно:
+    сервер ещё грузит веса.
+    """
+    import socket, urllib.error, urllib.request
+    base = url.rsplit("/chat/completions", 1)[0]
+    # сервер, закрытый ключом (vLLM с --api-key), без ключа не отдаёт и список моделей
+    key = os.environ.get(key_env or MODEL_KEY_ENV)
+    request = urllib.request.Request(base + "/models", headers={"Authorization": f"Bearer {key}"} if key else {})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
+            return resp.status == 200, None, False
+    except urllib.error.HTTPError as e:
+        return False, f"HTTP {e.code}", False
+    except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
+        reason = getattr(e, "reason", None)
+        name_missing = isinstance(reason, socket.gaierror)
+        return False, "нет адреса" if name_missing else type(reason if isinstance(reason, BaseException) else e).__name__, \
+            not name_missing
+    except Exception as e:
+        return False, type(e).__name__, False
+
+
+def model_route(wait_s=None, progress=None, sleep=None):
+    """Чем читать модель в этом разборе: ("main" | "fallback" | None, почему не основной).
+
+    OpenRouter основным адресом не проверяется: он есть всегда, а ключ проверен настройкой.
+    Своя модель проверяется запросом; пока она поднимается, разбор ждёт до `wait_s` секунд.
+    Не поднялась — запасной адрес, если он годен, иначе чтение без модели.
+    """
+    import time
+    if _is_openrouter(MODEL_URL):
+        return ("main", None) if MAIN_READY else \
+            (("fallback", f"нет {MODEL_KEY_ENV}") if FALLBACK_READY else (None, f"нет {MODEL_KEY_ENV}"))
+    wait_s = MODEL_WAIT_S if wait_s is None else wait_s
+    sleep = sleep or time.sleep
+    deadline = time.monotonic() + wait_s
+    while True:
+        ok, why, retry = probe_model(MODEL_URL)
+        if ok:
+            return "main", None
+        left = deadline - time.monotonic()
+        if not retry or left <= 0:
+            break
+        if progress:
+            progress(why, left)
+        sleep(min(10, max(left, 0.1)))
+    return ("fallback" if FALLBACK_READY else None), f"своя модель не отвечает ({why})"
 
 
 def reading_mode(requested=None):

@@ -4,7 +4,7 @@
 
 Синтетические строки экспликаций (`rooms_pages.jsonl`): помещение пропало, площадь уменьшена,
 категория изменена, шум ниже порога, перенумерация, ведущие нули номера, том-отщепенец,
-незакрытая строка разбора, много расхождений одного вида.
+незакрытая строка разбора, много расхождений одного вида, номер в таблицах разных мест здания.
 """
 import os
 import sys
@@ -21,9 +21,9 @@ def check(name, condition, detail=""):
     return bool(condition)
 
 
-def row(stage, file_id, page, number, name, area=None, category=None):
+def row(stage, file_id, page, number, name, area=None, category=None, table=None):
     return {"stage": stage, "file_id": file_id, "pdf_page_number": page, "number": number,
-            "name": name, "area_m2": area, "category": category, "labeled": True}
+            "name": name, "area_m2": area, "category": category, "labeled": True, "table": table}
 
 
 def names_of(rows):
@@ -309,10 +309,44 @@ def test_split_room():
     return ok
 
 
+def test_places():
+    print("\n9. Площадь — только в пределах одного места (Р-156)")
+    home = "Корпус 1. Секция 1. Экспликация помещений 1-го этажа"
+    parking = "Экспликация помещений автостоянки Кат."
+    ok = check("место по заголовку: корпус, секция, этаж; автостоянка — часть здания",
+               rx.place_of(home) == {"building": 1, "section": 1, "floor": "1 этаж"}
+               and rx.place_of(parking) == {"part": "автостоянка"}
+               and rx.place_of("Экспликация помещений") is None, str(rx.place_of(home)))
+
+    def rows_for(pd_table, rd_tables):
+        pd = [row("PD", "P1", 29, "6", "Тамбур-шлюз", 11.56, table=pd_table)]
+        rd = [row("RD", f"R{i}", 8, "6", "Тамбур-шлюз", 4.53, table=t) for i, t in enumerate(rd_tables, 1)]
+        return pd + rd
+    # Полярная 17: номер 6 в проекте — в таблице корпуса и секции, в рабочей стадии — в таблицах автостоянки
+    rows = rows_for(home, [parking, parking, parking])
+    got, s = rx.compare("OBJ-T", rows, names_of(rows))
+    ok &= check("проект — секция 1 на 1-м этаже, рабочая стадия — автостоянка: разные помещения, сверки нет",
+                not got and s["площадь: в заголовках экспликаций разные места"] == 1, str(s))
+    rows = rows_for(home, ["Экспликация помещений 2-го этажа. Секция 1"] * 2)
+    got, _ = rx.compare("OBJ-T", rows, names_of(rows))
+    ok &= check("этажи разные — сверки нет", not got)
+    rows = rows_for(home, ["Экспликация помещений 1 этажа"] * 2)
+    got, _ = rx.compare("OBJ-T", rows, names_of(rows))
+    ok &= check("этаж тот же, секция названа только в проекте — сверка прежняя, гипотеза есть", kinds(got) == ["AREA"])
+    rows = rows_for(home, ["Экспликация помещений", "Экспликация помещений"])
+    got, _ = rx.compare("OBJ-T", rows, names_of(rows))
+    ok &= check("место названо только в проекте — сверка прежняя, гипотеза есть", kinds(got) == ["AREA"])
+    rows = rows_for(home, [parking, None, None])
+    got, s = rx.compare("OBJ-T", rows, names_of(rows))
+    ok &= check("у части строк рабочей стадии места нет — сверку не снимаем",
+                kinds(got) == ["AREA"] and s["площадь: в заголовках экспликаций разные места"] == 0, str(s))
+    return ok
+
+
 def main():
     ok = True
     for fn in (test_missing, test_area, test_superseded, test_not_updated, test_category_and_numbers, test_category_same_name,
-               test_refusal, test_floors, test_split_room):
+               test_refusal, test_floors, test_split_room, test_places):
         ok &= fn()
     print("\nИТОГ:", "все проверки пройдены" if ok else "ЕСТЬ СБОИ")
     return 0 if ok else 1

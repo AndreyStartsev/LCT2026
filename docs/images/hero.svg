@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="Инспектор ИИ: сверка проектной, рабочей и исполнительной документации">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1F0D3A"/>
+      <stop offset="0.55" stop-color="#3A0F5E"/>
+      <stop offset="1" stop-color="#520977"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.86" cy="0.2" r="0.55">
+      <stop offset="0" stop-color="#FF0053" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FF0053" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8A83D1"/>
+      <stop offset="0.55" stop-color="#FF0053"/>
+      <stop offset="1" stop-color="#FC3777"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8A83D1"/>
+      <stop offset="1" stop-color="#FF0053"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#C9C4F0"/>
+    </marker>
+    <clipPath id="card"><rect width="1280" height="360" rx="28"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#card)">
+    <rect width="1280" height="360" fill="url(#bg)"/>
+    <rect width="1280" height="360" fill="url(#grid)"/>
+    <rect width="1280" height="360" fill="url(#glow)"/>
+  </g>
+
+  <g font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="64" y="84" fill="#C9C4F0" font-size="15" font-weight="600" letter-spacing="2.4">ЛЦТ 2026 · КЕЙС № 10 · МОСГОССТРОЙНАДЗОР</text>
+    <text x="62" y="158" fill="#FFFFFF" font-size="68" font-weight="700">Инспектор ИИ</text>
+    <rect x="64" y="180" width="132" height="6" rx="3" fill="url(#brand)"/>
+    <text x="64" y="226" fill="#EDE9FF" font-size="24">Сверка проектной, рабочей</text>
+    <text x="64" y="258" fill="#EDE9FF" font-size="24">и исполнительной документации объекта</text>
+    <text x="64" y="308" fill="#C9C4F0" font-size="17">Команда «Серьёзный подход»</text>
+
+    <!-- документы трёх стадий -->
+    <g>
+      <g transform="translate(708 58)">
+        <path d="M0 8a8 8 0 0 1 8-8h60l16 16v48a8 8 0 0 1-8 8H8a8 8 0 0 1-8-8Z" fill="#FFFFFF"/>
+        <path d="M68 0v10a6 6 0 0 0 6 6h10" fill="#E4E3EC"/>
+        <text x="14" y="30" fill="#520977" font-size="17" font-weight="700">ПД</text>
+        <rect x="14" y="42" width="54" height="4" rx="2" fill="#D9D4F2"/>
+        <rect x="14" y="52" width="40" height="4" rx="2" fill="#D9D4F2"/>
+      </g>
+      <g transform="translate(708 144)">
+        <path d="M0 8a8 8 0 0 1 8-8h60l16 16v48a8 8 0 0 1-8 8H8a8 8 0 0 1-8-8Z" fill="#FFFFFF"/>
+        <path d="M68 0v10a6 6 0 0 0 6 6h10" fill="#E4E3EC"/>
+        <text x="14" y="30" fill="#520977" font-size="17" font-weight="700">РД</text>
+        <rect x="14" y="42" width="54" height="4" rx="2" fill="#D9D4F2"/>
+        <rect x="14" y="52" width="40" height="4" rx="2" fill="#D9D4F2"/>
+      </g>
+      <g transform="translate(708 230)">
+        <path d="M0 8a8 8 0 0 1 8-8h60l16 16v48a8 8 0 0 1-8 8H8a8 8 0 0 1-8-8Z" fill="#FFFFFF"/>
+        <path d="M68 0v10a6 6 0 0 0 6 6h10" fill="#E4E3EC"/>
+        <text x="14" y="30" fill="#520977" font-size="17" font-weight="700">ИД</text>
+        <rect x="14" y="42" width="54" height="4" rx="2" fill="#D9D4F2"/>
+        <rect x="14" y="52" width="40" height="4" rx="2" fill="#D9D4F2"/>
+      </g>
+    </g>
+
+    <!-- связи к сверке -->
+    <g fill="none" stroke="#C9C4F0" stroke-width="2" stroke-opacity="0.85">
+      <path d="M800 94C850 94 846 158 872 170" marker-end="url(#arrow)"/>
+      <path d="M800 180H866" marker-end="url(#arrow)"/>
+      <path d="M800 266C850 266 846 202 872 190" marker-end="url(#arrow)"/>
+    </g>
+
+    <!-- сверка по Матрице -->
+    <circle cx="946" cy="180" r="66" fill="#2D1451" stroke="url(#ring)" stroke-width="6"/>
+    <circle cx="946" cy="180" r="54" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="3 5"/>
+    <text x="946" y="182" fill="#FFFFFF" font-size="40" font-weight="700" text-anchor="middle">132</text>
+    <text x="946" y="204" fill="#C9C4F0" font-size="13" text-anchor="middle">параметра</text>
+    <text x="946" y="220" fill="#C9C4F0" font-size="13" text-anchor="middle">Матрицы</text>
+
+    <path d="M1016 180H1036" fill="none" stroke="#C9C4F0" stroke-width="2" stroke-opacity="0.85" marker-end="url(#arrow)"/>
+
+    <!-- протокол -->
+    <g transform="translate(1044 70)">
+      <rect width="196" height="220" rx="14" fill="#FFFFFF"/>
+      <text x="18" y="36" fill="#1C1D22" font-size="18" font-weight="700">Протокол</text>
+      <rect x="18" y="48" width="160" height="3" rx="1.5" fill="url(#brand)"/>
+      <g transform="translate(18 72)">
+        <rect width="26" height="26" rx="6" fill="#007A46"/>
+        <path d="M7 13.5l4.2 4.2L19.5 9" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="36" y="18" fill="#1C1D22" font-size="14">без замечаний</text>
+      </g>
+      <g transform="translate(18 116)">
+        <rect width="26" height="26" rx="6" fill="#E6004B"/>
+        <rect x="11.6" y="6" width="2.8" height="10" rx="1.4" fill="#FFFFFF"/>
+        <circle cx="13" cy="20" r="1.8" fill="#FFFFFF"/>
+        <text x="36" y="18" fill="#1C1D22" font-size="14">нарушение</text>
+      </g>
+      <g transform="translate(18 160)">
+        <rect width="26" height="26" rx="6" fill="#8F5500"/>
+        <text x="13" y="19" fill="#FFFFFF" font-size="16" font-weight="700" text-anchor="middle">?</text>
+        <text x="36" y="18" fill="#1C1D22" font-size="14">решает инспектор</text>
+      </g>
+    </g>
+  </g>
+</svg>

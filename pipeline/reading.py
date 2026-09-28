@@ -25,6 +25,7 @@
 import csv
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -360,8 +361,20 @@ def read_tesseract(png, psm="6"):
 # Куда ходить за моделью. Совместимо с OpenAI-подобным /chat/completions, поэтому один
 # и тот же режим работает и с моделью на своём железе (vLLM, Ollama, llama.cpp), и через
 # OpenRouter. Ключ нужен не всякому адресу: своя модель обычно раздаётся без него (#54).
-MODEL_URL = os.environ.get("PIPELINE_MODEL_URL") or "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL_URL = os.environ.get("PIPELINE_MODEL_URL") or OPENROUTER_URL
 MODEL_KEY_ENV = os.environ.get("PIPELINE_MODEL_KEY_ENV") or "OPENROUTER_API_KEY"
+# Запасной адрес на случай, когда своя модель не отвечает: карта занята, веса ещё грузятся,
+# контейнер модели не поднялся. Тогда страница читается запасным адресом, обычно OpenRouter,
+# и только если для него есть ключ. По умолчанию запасного нет: стенд с OpenRouter
+# основным адресом работает как работал. Своё и запасное имя модели совпадают — сервер своей
+# модели раздаёт её под именем OpenRouter (deploy/docker-compose.release.yml).
+MODEL_FALLBACK_URL = os.environ.get("PIPELINE_MODEL_FALLBACK_URL") or ""
+MODEL_FALLBACK_KEY_ENV = os.environ.get("PIPELINE_MODEL_FALLBACK_KEY_ENV") or "OPENROUTER_API_KEY"
+# Сколько секунд не стучаться в основной адрес, который не ответил по сети: иначе каждая
+# страница ждёт отказа, прежде чем уйти на запасной. Счёт свой у каждого процесса чтения.
+MODEL_PRIMARY_PAUSE_S = float(os.environ.get("PIPELINE_MODEL_PRIMARY_PAUSE_S") or 60)
+_primary_paused_until = 0.0
 # Потолок ответа: страница документации — это тысячи знаков, а не десятки тысяч. Без потолка
 # зациклившаяся модель добирает лимит до конца и тратит время и деньги впустую (#54).
 MODEL_MAX_TOKENS = int(os.environ.get("PIPELINE_MODEL_MAX_TOKENS") or 4000)
@@ -372,12 +385,23 @@ MODEL_MAX_TOKENS = int(os.environ.get("PIPELINE_MODEL_MAX_TOKENS") or 4000)
 MODEL_RETRY_TOKENS = int(os.environ.get("PIPELINE_MODEL_RETRY_TOKENS") or 16000)
 # 16 тысяч токенов у провайдера — это минуты: зациклившийся ответ в 4000 токенов шёл 92–240 с
 MODEL_RETRY_TIMEOUT = int(os.environ.get("PIPELINE_MODEL_RETRY_TIMEOUT") or 1200)
-# что из ответа модели записывается у страницы: имя, время, стоимость, отказ, переспрос (#54)
+# что из ответа модели записывается у страницы: имя, время, стоимость, отказ, переспрос (#54),
+# запасной адрес (Р-98)
 MODEL_NOTE_KEYS = ("model", "ms", "cost_usd", "looped", "error", "finish_reason", "tokens_in", "tokens_out",
-                   "retried", "first_tokens_out", "retry_error", "loop_from")
+                   "retried", "first_tokens_out", "retry_error", "loop_from", "fallback")
 # Просить ли модель размышлять перед ответом. По умолчанию нет: работа — переписать текст
 # страницы, и размышление добавляет цену и время, а не качество (#71).
 MODEL_REASONING = os.environ.get("PIPELINE_MODEL_REASONING", "0") not in ("0", "false", "no", "")
+# Какой сервер стоит за адресом, если это не OpenRouter: от этого зависит, каким полем
+# выключается размышление. vllm — vLLM, SGLang, llama.cpp (шаблоном чата); ollama — Ollama
+# (reasoning_effort); openai — любой другой совместимый сервер, поле не передаётся.
+MODEL_SERVER = (os.environ.get("PIPELINE_MODEL_SERVER") or "vllm").strip().lower()
+# Лишние поля запроса своему серверу, JSON-объектом: то, что понимает только он
+# (например {"top_k": 1} у vLLM). OpenRouter их не получает.
+MODEL_EXTRA_BODY = os.environ.get("PIPELINE_MODEL_EXTRA_BODY") or ""
+# Сколько ждать ответа на одну страницу. Медленному серверу с очередью (Ollama на одной
+# карте, чужой сервис) трёх минут может не хватить.
+MODEL_TIMEOUT_S = float(os.environ.get("PIPELINE_MODEL_TIMEOUT_S") or 180)
 
 
 def model_name():
@@ -385,7 +409,89 @@ def model_name():
     return os.environ.get("PIPELINE_MODEL_NAME") or os.environ.get("BENCH_MODEL") or DEFAULT_MODEL
 
 
-def read_model(png, model=None, timeout=180, url=None, prompt=None):
+def is_openrouter(url):
+    return "openrouter.ai" in (url or "")
+
+
+def model_endpoints(url=None):
+    """Адреса модели по порядку попытки: [(адрес, переменная ключа, запасной ли)].
+
+    Явно переданный адрес идёт один: замер или проверка просят именно его. Адрес OpenRouter
+    без ключа в списке остаётся только основным — чтобы отказ «нет ключа» был виден.
+    """
+    if url:
+        return [(url, MODEL_KEY_ENV, False)]
+    out = [(MODEL_URL, MODEL_KEY_ENV, False)]
+    if MODEL_FALLBACK_URL and MODEL_FALLBACK_URL != MODEL_URL:
+        if not is_openrouter(MODEL_FALLBACK_URL) or os.environ.get(MODEL_FALLBACK_KEY_ENV):
+            out.append((MODEL_FALLBACK_URL, MODEL_FALLBACK_KEY_ENV, True))
+    return out
+
+
+def model_body(model, prompt, b64, url, max_tokens=None):
+    """Тело запроса к модели. Отключение размышления у каждого адреса своё.
+
+    `max_tokens` — потолок ответа: `MODEL_MAX_TOKENS`, у переспроса обрезанного ответа — больше.
+    """
+    body = {
+        "model": model, "temperature": 0, "max_tokens": max_tokens or MODEL_MAX_TOKENS,
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": prompt or PROMPT},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}},
+        ]}],
+    }
+    # Размышление модели здесь не нужно: её просят переписать видимый текст, а не решать задачу.
+    # У «думающих» вариантов оно стоит вдесятеро дороже и втрое дольше при прибавке в пару
+    # тысячных (#71). OpenRouter понимает своё поле reasoning. vLLM и SGLang его пропускают
+    # молча, и Qwen3.6 думает: 0,922 против 0,988 на трудной выборке. У них размышление
+    # выключается шаблоном чата, как велит карточка модели; у Ollama — полем reasoning_effort.
+    server = "openrouter" if is_openrouter(url) else MODEL_SERVER
+    if not MODEL_REASONING:
+        if server == "openrouter":
+            body["reasoning"] = {"enabled": False, "exclude": True}
+        elif server == "ollama":
+            body["reasoning_effort"] = "none"
+        elif server != "openai":
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+    if server != "openrouter" and MODEL_EXTRA_BODY:
+        body.update(json.loads(MODEL_EXTRA_BODY))
+    return body
+
+
+def _post_model(url, key_env, body, timeout):
+    """Один запрос: (ответ, None, сетевой ли отказ) или (None, ошибка, сетевой ли отказ).
+
+    Сетевой отказ — адрес не ответил вовсе: нет имени, соединение отвергнуто, истекло время.
+    Так ведёт себя сервер своей модели, который не поднялся или ещё грузит веса.
+    """
+    import urllib.error, urllib.request
+    key = os.environ.get(key_env)
+    if not key and is_openrouter(url):
+        return None, f"нет {key_env}", False
+    headers = {"Content-Type": "application/json", "X-Title": "inspector-ai"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read()), None, False
+    except urllib.error.HTTPError as e:
+        return None, f"HTTP {e.code}", False
+    except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
+        reason = getattr(e, "reason", None)
+        return None, type(reason if isinstance(reason, BaseException) else e).__name__, True
+    except Exception as e:
+        return None, type(e).__name__, False
+
+
+# Ответы основного адреса, после которых страницу стоит повторить запасным: сервер есть,
+# но модели на нём нет (404), он перегружен или упал внутри (408, 429, 5xx). Отказ 400 —
+# плохой запрос, запасной ответит тем же.
+_FALLBACK_HTTP = {"HTTP 404", "HTTP 408", "HTTP 429"} | {f"HTTP {c}" for c in range(500, 600)}
+THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>", re.S)
+
+
+def read_model(png, model=None, timeout=None, url=None, prompt=None):
     """Мультимодальная модель по адресу MODEL_URL: своё железо или OpenRouter.
 
     Зациклившийся ответ не принимается: модель повторяет заголовки таблицы, пока не упрётся
@@ -399,22 +505,24 @@ def read_model(png, model=None, timeout=180, url=None, prompt=None):
     `prompt` — прицельный вопрос вместо общего «перепиши весь текст»: так у правила можно
     спросить одно значение с чертежа, где текста нет вовсе (#98). Он не переспрашивается: ответ
     на него — одно значение, и длинный ответ там сам по себе сбой.
+
+    Если основной адрес не ответил, а запасной задан (MODEL_FALLBACK_URL), страница читается
+    запасным, и в ответе стоит `fallback: True`.
     """
     import base64
-    url = url or MODEL_URL
-    key = os.environ.get(MODEL_KEY_ENV)
-    if not key and "openrouter.ai" in url:
-        return {"text": "", "error": f"нет {MODEL_KEY_ENV}"}
     model = model or model_name()
+    timeout = timeout or MODEL_TIMEOUT_S
     with open(png, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
-    first = _ask(url, key, model, b64, prompt, MODEL_MAX_TOKENS, timeout)
+    first = _ask(url, model, b64, prompt, MODEL_MAX_TOKENS, timeout)
     if (prompt is not None or first.get("finish_reason") != "length" or not first.get("text")
             or MODEL_RETRY_TOKENS <= MODEL_MAX_TOKENS):
         return first
-    again = _ask(url, key, model, b64, prompt, MODEL_RETRY_TOKENS, max(timeout, MODEL_RETRY_TIMEOUT))
+    again = _ask(url, model, b64, prompt, MODEL_RETRY_TOKENS, max(timeout, MODEL_RETRY_TIMEOUT))
     spent = {k: (first.get(k) or 0) + (again.get(k) or 0) for k in ("cost_usd", "tokens_in", "tokens_out", "ms")}
     note = {"retried": True, "first_tokens_out": first.get("tokens_out")}
+    if first.get("fallback") or again.get("fallback"):
+        note["fallback"] = True
     if again.get("text"):
         return {**again, **spent, **note}
     # Переспрос текста не дал: сбой вызова или повтор дальше первого потолка. Остаётся первый
@@ -423,36 +531,38 @@ def read_model(png, model=None, timeout=180, url=None, prompt=None):
             **({"loop_from": again["loop_from"]} if again.get("loop_from") is not None else {})}
 
 
-def _ask(url, key, model, b64, prompt, max_tokens, timeout):
-    """Один вызов модели: ответ, его токены, время и цена."""
-    import urllib.error, urllib.request
-    body = {
-        "model": model, "temperature": 0, "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": [
-            {"type": "text", "text": prompt or PROMPT},
-            {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}},
-        ]}],
-    }
-    # Размышление модели здесь не нужно: её просят переписать видимый текст, а не решать задачу.
-    # У «думающих» вариантов оно стоит вдесятеро дороже и втрое дольше при прибавке в пару
-    # тысячных (#71). Ключ понимают не все адреса; где не понимают — лишнее поле игнорируется.
-    if not MODEL_REASONING:
-        body["reasoning"] = {"enabled": False, "exclude": True}
-    headers = {"Content-Type": "application/json", "X-Title": "inspector-ai"}
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+def _ask(url, model, b64, prompt, max_tokens, timeout):
+    """Один вызов модели: ответ, его токены, время и цена.
+
+    Адреса — по `model_endpoints`: основной, а если он не ответил и запасной задан — запасной.
+    """
+    global _primary_paused_until
+    endpoints = model_endpoints(url)
+    # основной адрес недавно не ответил по сети — сразу к запасному, если он есть
+    if len(endpoints) > 1 and time.time() < _primary_paused_until:
+        endpoints = endpoints[1:]
     t0 = time.time()
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        return {"text": "", "error": f"HTTP {e.code}"}
-    except Exception as e:
-        return {"text": "", "error": type(e).__name__}
+    errors = []
+    data = None
+    fallback = False
+    for address, key_env, fallback in endpoints:
+        data, error, network = _post_model(address, key_env, model_body(model, prompt, b64, address, max_tokens),
+                                           timeout)
+        if data is not None:
+            break
+        errors.append(error if not fallback else f"запасной: {error}")
+        if not fallback and network:
+            _primary_paused_until = time.time() + MODEL_PRIMARY_PAUSE_S
+        if not (network or error in _FALLBACK_HTTP):
+            break
+    if data is None:
+        return {"text": "", "error": "; ".join(errors)}
     usage = data.get("usage") or {}
     choice = (data.get("choices") or [{}])[0]
     text = ((choice.get("message") or {}).get("content") or "").strip()
+    # Размышление, если сервер его всё-таки включил, приходит в начале ответа блоком <think>:
+    # в тексте страницы ему не место
+    text = THINK_BLOCK.sub("", text).strip()
     out = {
         "model": data.get("model", model),
         "cost_usd": float(usage.get("cost") or 0.0),
@@ -464,6 +574,8 @@ def _ask(url, key, model, b64, prompt, max_tokens, timeout):
         "ms": int((time.time() - t0) * 1000),
         "finish_reason": choice.get("finish_reason"),
     }
+    if fallback:
+        out["fallback"] = True
     if text and looks_looped(text):
         # ответ зациклился: берём текст страницы без модели, чтобы повтор не попал в правила
         return {**out, "text": "", "looped": True, "error": "ответ зациклился",

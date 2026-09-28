@@ -12,6 +12,9 @@
 # Мониторинг (по запросу): docker compose --profile monitoring up
 #   Prometheus: http://localhost:9090   Grafana: http://localhost:3001
 #
+# Стенд проверки с видеокартой и своей моделью — надстройка deploy/docker-compose.release.yml
+# (deploy/RELEASE.md); этот файл остаётся стендом разработки с моделью через OpenRouter.
+#
 # Паролей в этом файле нет. При первом запуске сервис secrets генерирует пароли базы
 # и хранилища и ключ подписи токенов в том secrets, остальные читают их из файлов.
 # Посмотреть пароль, например для консоли хранилища:
@@ -290,7 +293,8 @@ services:
       MAX_PACKAGE_MB: ${MAX_PACKAGE_MB:-200}
       NGINX_ENVSUBST_FILTER: "^MAX_BODY_MB$$"
     ports:
-      - "127.0.0.1:8080:80"
+      # веб открыт только этой машине; WEB_BIND=0.0.0.0 открывает его в сеть
+      - "${WEB_BIND:-127.0.0.1}:8080:80"
     depends_on:
       api: { condition: service_healthy }
 

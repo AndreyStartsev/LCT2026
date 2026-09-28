@@ -36,6 +36,8 @@ COPY docs/extracted docs/extracted
 # потребитель — перенос гипотезы свободного поиска в MATRIX — ронял балл с 99,28 до 93,96, и он
 # выключен флагом FREE_SEARCH_MATRIX. Сопоставление в classify() идёт на стеммах; веса для опытов
 # вне сервиса качает models/embeddings/download.py.
+# загрузчик папки объекта (#32): в поставке он работает из этого образа, deploy/docker-compose.release.yml
+COPY tools/upload_object.py tools/upload_object.py
 COPY service/__init__.py service/__init__.py
 COPY service/worker service/worker
 ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app PIPELINE_CACHE=/app/.cache WORK_DIR=/work

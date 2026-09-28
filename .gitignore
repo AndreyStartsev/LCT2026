@@ -15,6 +15,10 @@ rules/*
 # Кеш чтения и результаты прогонов: внутри текст документов корпуса, находки и протоколы
 .cache/
 build/
+# стенд с видеокартой: папка объектов, файлы сдачи, собранные архивы поставки
+/input/
+/output/
+/release-*/
 
 # Корпус документов организатора и документы вообще
 data/
@@ -37,6 +41,7 @@ data/
 # Документы, презентация, отчёты: из docs/ — только данные, которые читает конвейер
 docs/*
 !docs/extracted/
+!docs/images/
 docs/extracted/*
 !docs/extracted/document_manifest.jsonl
 !docs/extracted/parameter_catalog_132.jsonl
@@ -51,6 +56,9 @@ docs/extracted/*
 *.webp
 *.mp4
 *.mov
+# картинки README
+!docs/images/*.png
+!docs/images/*.jpg
 
 # Маркдауны — только README
 *.md

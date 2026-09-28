@@ -11,6 +11,7 @@ svod
 generated_constructions
 scoring
 tools
+!tools/upload_object.py
 tests
 **/node_modules
 **/dist

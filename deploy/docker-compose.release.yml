@@ -1,0 +1,122 @@
+# Поставка на стенд проверки: тот же docker-compose.yml плюс своя модель чтения на видеокарте.
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.release.yml up -d
+#
+# Стенд разработки и облачный демо-стенд этот файл не трогает: там модель по-прежнему
+# читает через OpenRouter, список моделей и настройки прежние. Здесь меняется вот что:
+#
+# - сервис llm: vLLM и Qwen3.6-27B FP8 внутри образа, одна видеокарта, сеть при работе не нужна;
+# - воркер по умолчанию читает моделью и ходит в llm. OpenRouter — только запасной адрес
+#   и только с ключом INSPECTOR_OPENROUTER_API_KEY; без ключа (так на стенде проверки)
+#   внешних вызовов нет, а без своей модели объект читается распознаванием;
+# - готовые образы по тегу вместо сборки из рабочей копии, кеш чтения в томе;
+# - загрузчик папки объекта, результат — файл сдачи в ./output:
+#     docker compose -f docker-compose.yml -f deploy/docker-compose.release.yml \
+#       run --rm loader --folder "/input/<папка объекта>" --object-id OBJ-NEW
+#
+# Порядок запуска, проверка и переменные — deploy/RELEASE.md.
+name: inspector-release
+
+services:
+  llm:
+    image: ${INSPECTOR_REGISTRY:-inspector-release}/llm:${INSPECTOR_TAG:-latest}
+    build:
+      context: ./service/llm
+      args:
+        VLLM_IMAGE: ${LLM_VLLM_IMAGE:-vllm/vllm-openai:v0.30.0-cu129}
+    environment:
+      # доля видеопамяти: пусто — от свободной, не больше LLM_GPU_MEMORY_MAX (service/llm/serve.py)
+      LLM_GPU_MEMORY_UTILIZATION: ${LLM_GPU_MEMORY_UTILIZATION:-}
+      LLM_GPU_MEMORY_MAX: ${LLM_GPU_MEMORY_MAX:-0.85}
+      LLM_GPU_MEMORY_MIN: ${LLM_GPU_MEMORY_MIN:-0.45}
+      LLM_MAX_NUM_SEQS: ${LLM_MAX_NUM_SEQS:-32}
+      LLM_MAX_MODEL_LEN: ${LLM_MAX_MODEL_LEN:-32768}
+      LLM_EXTRA_ARGS: ${LLM_EXTRA_ARGS:-}
+    shm_size: 8gb
+    volumes:
+      # собранные ядра переживают перезапуск: второй подъём сервера быстрее первого
+      - llmcache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${LLM_GPU:-0}"]
+              capabilities: [gpu]
+    # без карты сервер выходит сразу, и после пяти попыток контейнер остаётся остановленным:
+    # воркер видит, что адреса нет, и не ждёт его
+    restart: on-failure:5
+
+  worker:
+    image: ${INSPECTOR_REGISTRY:-inspector-release}/worker:${INSPECTOR_TAG:-latest}
+    environment:
+      PIPELINE_READING_MODE: ${PIPELINE_READING_MODE:-model}
+      PIPELINE_MODEL: ${PIPELINE_MODEL:-1}
+      PIPELINE_MODEL_URL: ${PIPELINE_MODEL_URL:-http://llm:8000/v1/chat/completions}
+      # своей модели ключ не нужен; ключ OpenRouter ей не передаётся
+      PIPELINE_MODEL_KEY_ENV: ${PIPELINE_MODEL_KEY_ENV:-LLM_API_KEY}
+      PIPELINE_MODEL_FALLBACK_URL: ${PIPELINE_MODEL_FALLBACK_URL:-https://openrouter.ai/api/v1/chat/completions}
+      PIPELINE_MODEL_FALLBACK_KEY_ENV: OPENROUTER_API_KEY
+      # сервер модели поднимается минутами: разбор, начатый раньше, ждёт его до 20 минут
+      PIPELINE_MODEL_WAIT_S: ${PIPELINE_MODEL_WAIT_S:-1200}
+      # на экране загрузки — только поднятая модель; имя то же, что у OpenRouter
+      PIPELINE_MODEL_CHOICES: ${PIPELINE_MODEL_CHOICES:-qwen/qwen3.6-27b=Qwen3.6 27B FP8 на своей видеокарте}
+      # Проход модели по чертежам (#98) перед правилами: своя модель бесплатна, и 30 правил
+      # `vlm_value` на новом объекте получают значения с чертежей. Потолок покрывает любой объект
+      # корпуса (до 270 листов), восемь вопросов одновременно — из LLM_MAX_NUM_SEQS
+      PIPELINE_VLM: ${PIPELINE_VLM:-1}
+      PIPELINE_VLM_LIMIT: ${PIPELINE_VLM_LIMIT:-600}
+      PIPELINE_VLM_WORKERS: ${PIPELINE_VLM_WORKERS:-8}
+      # на стенде проверки 24 ядра: страницы читаются процессами по одному потоку Tesseract
+      PIPELINE_PAGE_WORKERS: ${PIPELINE_PAGE_WORKERS:-20}
+      PIPELINE_OCR_WORKERS: ${PIPELINE_OCR_WORKERS:-20}
+      # реестр организатора кладётся рядом с папкой объекта: input/files_index.jsonl
+      INSPECTOR_MANIFESTS: ${INSPECTOR_MANIFESTS:-/input/files_index.jsonl:/input/document_manifest.jsonl}
+    volumes:
+      # тот же путь, что у монтирования ./.cache в основном файле, — заменяет его томом
+      - cache:/app/.cache
+      - ${INSPECTOR_INPUT:-./input}:/input:ro
+    restart: unless-stopped
+
+  api:
+    image: ${INSPECTOR_REGISTRY:-inspector-release}/api:${INSPECTOR_TAG:-latest}
+    environment:
+      PIPELINE_MODEL_CHOICES: ${PIPELINE_MODEL_CHOICES:-qwen/qwen3.6-27b=Qwen3.6 27B FP8 на своей видеокарте}
+      # Лимиты загрузки в браузере — по ТЗ, 50 и 200 МБ, из основного файла, как на стендах (Р-110).
+      # Загрузчик папки входит под admin и грузит маршрутом /documents/bulk без лимита размера:
+      # самый крупный PDF корпуса — 956 МБ
+    restart: unless-stopped
+
+  iais:
+    image: ${INSPECTOR_REGISTRY:-inspector-release}/api:${INSPECTOR_TAG:-latest}
+    restart: unless-stopped
+
+  web:
+    image: ${INSPECTOR_REGISTRY:-inspector-release}/web:${INSPECTOR_TAG:-latest}
+    restart: unless-stopped
+
+  minio:
+    # закреплённый выпуск вместо latest: тот, на котором работает стенд разработки
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+
+  postgres: { restart: unless-stopped }
+  redis:    { restart: unless-stopped }
+  rabbitmq: { restart: unless-stopped }
+
+  # Папка объекта → процесс → файл сдачи. Тот же tools/upload_object.py, что на стенде
+  # разработки, только внутри образа воркера: на машине проверки Python не нужен.
+  loader:
+    image: ${INSPECTOR_REGISTRY:-inspector-release}/worker:${INSPECTOR_TAG:-latest}
+    profiles: ["loader"]
+    entrypoint: ["python", "/app/tools/upload_object.py", "--api", "http://api:8080"]
+    working_dir: /output
+    volumes:
+      - ${INSPECTOR_INPUT:-./input}:/input:ro
+      - ${INSPECTOR_OUTPUT:-./output}:/output
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  cache:
+  llmcache:
