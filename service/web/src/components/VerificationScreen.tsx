@@ -17,7 +17,7 @@ import {
   type Session,
 } from "../api";
 import { keyAction } from "../keys";
-import { auditLine, bytes, criticalityWeight, plural, PROCESS_STATUS, SCENARIO, STAGE_NAME, STEP, when } from "../labels";
+import { APPROVAL_HINT, auditLine, bytes, criticalityWeight, plural, PROCESS_STATUS, SCENARIO, STAGE_NAME, STEP, when } from "../labels";
 import {
   isCandidate,
   isHypothesis,
@@ -27,6 +27,7 @@ import {
   syncShort,
   tableOf,
   TABLES,
+  usesStage,
   type StageLoad,
   type TableKey,
 } from "../protocol";
@@ -286,6 +287,10 @@ export default function VerificationScreen({
     }),
     [active],
   );
+  // проект участвует в сравнении записи: у свободного поиска без значения и страницы ПД — нет
+  const pdUsed = active ? usesStage(active, "PD") : true;
+  // где искать согласованное изменение — у проверок, где его ставят прямо в исполнительной документации
+  const approvalHint = active?.parameter_code ? APPROVAL_HINT[active.parameter_code] : undefined;
   const markedOf = (items: Evidence[]) => Math.max(items.findIndex((e) => e.highlights?.length), 0);
   const shownIndex = (side: "PD" | "RD") => {
     const items = sideItems[side];
@@ -1227,15 +1232,25 @@ export default function VerificationScreen({
                         стоит в шапке карточки перед листанием записей */}
                     {active && (sideItems.PD.length > 0 || sideItems.RD.length > 0) && (
                       <span className="head-compare">
+                        {/* проверке без проекта сопоставлять не с чем: кнопка открывает её лист во весь экран,
+                            а не сопоставление с пустой половиной «страница проекта не найдена» */}
                         <Tip
-                          text="Сопоставить листы ПД и РД во весь экран: масштаб колесом мыши, лист двигается перетаскиванием"
+                          text={
+                            pdUsed
+                              ? "Сопоставить листы ПД и РД во весь экран: масштаб колесом мыши, лист двигается перетаскиванием"
+                              : "Открыть лист во весь экран: масштаб колесом мыши, лист двигается перетаскиванием"
+                          }
                           place="below"
                         >
                           <button
                             type="button"
                             className="step-btn"
-                            aria-label="Сопоставить листы во весь экран"
-                            onClick={() => setCompare(true)}
+                            aria-label={pdUsed ? "Сопоставить листы во весь экран" : "Открыть лист во весь экран"}
+                            onClick={() =>
+                              pdUsed
+                                ? setCompare(true)
+                                : setViewer({ side: "RD", title: `${STAGE_NAME.RD}: ${active.title ?? active.parameter_code}` })
+                            }
                           >
                             <HeadIcon name="compare" />
                           </button>
@@ -1395,17 +1410,23 @@ export default function VerificationScreen({
           <div className="col col-pages">
             {active ? (
               <>
-                <PageCard
-                  processId={processId}
-                  stage="PD"
-                  items={sideItems.PD}
-                  value={active.pd_value}
-                  index={shownIndex("PD")}
-                  onIndex={(i) => showPage("PD", i)}
-                  onOpen={() => setViewer({ side: "PD", title: `${STAGE_NAME.PD}: ${active.title ?? active.parameter_code}` })}
-                  onError={setError}
-                />
-                {revisionHint("PD")}
+                {/* Проект, которого проверка не касается, не занимает полколонки заглушкой «страница
+                    не найдена»: лист, по которому решают, получает всю высоту */}
+                {pdUsed && (
+                  <>
+                    <PageCard
+                      processId={processId}
+                      stage="PD"
+                      items={sideItems.PD}
+                      value={active.pd_value}
+                      index={shownIndex("PD")}
+                      onIndex={(i) => showPage("PD", i)}
+                      onOpen={() => setViewer({ side: "PD", title: `${STAGE_NAME.PD}: ${active.title ?? active.parameter_code}` })}
+                      onError={setError}
+                    />
+                    {revisionHint("PD")}
+                  </>
+                )}
                 <PageCard
                   processId={processId}
                   stage="RD"
@@ -1418,6 +1439,17 @@ export default function VerificationScreen({
                   onError={setError}
                 />
                 {revisionHint("RD")}
+                {/* ТЗ 9.2: нарушение подтверждают, проверив, что нет согласованного изменения. Отступление по
+                    исполнительной схеме и замену материала согласуют прямо в ИД — отметкой от руки, письмом
+                    в приложениях к акту, — а система такое согласование не находит. Строка стоит у каждой
+                    такой записи, под листом: инспектор в этот момент смотрит на него */}
+                {approvalHint && (
+                  <div className="note-line rev-hint">
+                    <Tip text={approvalHint.tip} place="above">
+                      <span className="has-tip">{approvalHint.line}</span>
+                    </Tip>
+                  </div>
+                )}
               </>
             ) : (
               <div className="page-card">

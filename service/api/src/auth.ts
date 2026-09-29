@@ -81,4 +81,13 @@ export function requireRole(role: Role) {
   };
 }
 
+/** Маршрут нескольких ролей: предложения правки видят эксперт, который их пишет, и администратор, который их переносит. */
+export function requireRoles(...roles: Role[]) {
+  return async (request: FastifyRequest): Promise<void> => {
+    if (!roles.includes(request.user.role)) {
+      throw new ApiError(403, "FORBIDDEN", `Действие доступно только ролям ${roles.join(", ")}`);
+    }
+  };
+}
+
 export { bearer };

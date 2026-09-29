@@ -178,6 +178,37 @@ test("подтверждённая гипотеза — в подтверждё�
   assert.deepEqual(ids(final.resolution.medium), ["O::FREE::132"]);
 });
 
+test("сверка исполнительной схемы с допусками того же листа: обе стороны — лист ИД", () => {
+  const f = hypothesis("O::TOLERANCE::L0084-1", "CONFIRMED_VIOLATION", true, { decided_by: "inspector", decided_at: new Date() });
+  const sheet = {
+    ...f, parameter_code: "FREE-KR-002", pd_value: "допуски листа: 12 мм, 15 мм, 20 мм", rd_value: null,
+    body: { ...f.body, id_value: "+980 мм", evidence: [ev("ID", "L0084", 1)],
+      extraction: { detail: "наибольший допуск листа 20 мм, из 14 отклонений 6 больше него",
+        rule_basis: "отклонения исполнительной схемы против допусков, объявленных на том же листе",
+        id: { raw: "+980", text_source: "RECOGNIZED" } } },
+  };
+  const report = buildReport(input("VERIFYING", [...findings(), sheet]));
+  const card = report.evidence_cards.find((c) => c.matrix_code === "FREE-KR-002");
+  assert.equal(card.expected_value, "допуски листа: 12 мм, 15 мм, 20 мм");
+  assert.equal(card.actual_value, "+980 мм");
+  assert.deepEqual([card.expected_stage, card.actual_stage], ["ID", "ID"]);
+  // источник есть у обеих сторон — страница схемы; третьего массива нет: значение ИД и есть фактическое
+  const where = (sources) => sources.map((s) => [s.stage, s.file_id, s.page]);
+  assert.deepEqual(where(card.source_expected), [["ID", "L0084", 1]]);
+  assert.deepEqual(where(card.source_actual), [["ID", "L0084", 1]]);
+  assert.equal(card.built_value, null);
+  assert.deepEqual(card.value_read_by, { expected: "RECOGNIZED", actual: "RECOGNIZED" });
+  // в таблицах протокола колонки ПД и РД пусты, отклонение — в колонке ИД, допуск — в «Отклонении»
+  const row = report.tables.confirmed.find((r) => r.parameter_code === "FREE-KR-002");
+  assert.deepEqual([row.pd_value, row.rd_value, row.id_value], [null, null, "+980 мм"]);
+  // подписи сторон в PDF и DOCX — по стадиям карточки, у записей Матрицы прежние
+  const labels = protocolBlocks(report).filter((b) => b.kind === "kv").flatMap((b) => b.pairs.map(([key]) => key));
+  assert.ok(labels.includes("expected_value (ИД)") && labels.includes("actual_value (ИД)"));
+  assert.ok(labels.includes("expected_value (ПД)") && labels.includes("actual_value (РД)"));
+  const spzu = report.evidence_cards.find((c) => c.matrix_code === "SPZU-026");
+  assert.deepEqual([spzu.expected_value, spzu.actual_value, spzu.expected_stage, spzu.actual_stage], ["1", "2", "PD", "RD"]);
+});
+
 /** Строки текста на каждом листе PDF от pdfkit: высота строки от низа листа (оператор Tm). */
 function textLinesByPage(pdf) {
   const raw = pdf.toString("latin1");

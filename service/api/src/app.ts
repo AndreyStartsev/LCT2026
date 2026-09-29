@@ -19,6 +19,7 @@ import { datasetRoutes } from "./dataset.js";
 import { registerMetrics } from "./metrics.js";
 import { reportRoutes } from "./routes/report.js";
 import { linksRoutes } from "./routes/links.js";
+import { proposalRoutes } from "./routes/proposals.js";
 import { rulesRoutes } from "./routes/rules.js";
 
 const UPLOAD_BODY = {
@@ -150,6 +151,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(linksRoutes);
   await app.register(datasetRoutes);
   await app.register(rulesRoutes);
+  await app.register(proposalRoutes);
 
   app.get("/api/v1/openapi.json", { schema: { hide: true } }, async () => app.swagger());
   return app;

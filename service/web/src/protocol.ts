@@ -54,6 +54,28 @@ export function isHypothesis(f: Finding): boolean {
   return origin && f.verification_status === "PENDING" && !f.promoted_at;
 }
 
+/**
+ * Сверка исполнительной схемы с допусками, объявленными на том же листе (FREE-KR-002): допуск
+ * и отклонение — с одного листа ИД. Допуск конвейер кладёт в pd_value (в выгрузке это ожидаемое
+ * значение), отклонение — в id_value; ПД и РД в проверке не участвуют.
+ */
+export function isSheetTolerance(f: Pick<Finding, "parameter_code">): boolean {
+  return f.parameter_code === "FREE-KR-002";
+}
+
+/**
+ * Участвует ли стадия в сравнении. У Матрицы и черновиков правил ПД и РД участвуют всегда: пустая
+ * сторона там — пропуск, и инспектор должен его видеть. Свободный поиск сравнивает то, что задаёт
+ * сама проверка: сторона без значения и без страницы в ней не участвует (акт против листа РД,
+ * номер акта в имени файла, редакции одного листа), и рамка «не найдено» только сбивала бы.
+ */
+export function usesStage(f: Finding, stage: "PD" | "RD"): boolean {
+  if (isSheetTolerance(f)) return false;
+  if (f.matrix_scope !== "FREE_SEARCH") return true;
+  const value = stage === "PD" ? f.pd_value : f.rd_value;
+  return value != null || f.evidence.some((e) => e.stage === stage);
+}
+
 /** Таблица записи или null, если запись в протоколе не показывается (разделённая целиком). */
 export function tableOf(f: Finding): TableKey | null {
   if (f.verification_status === "SPLIT") return null;

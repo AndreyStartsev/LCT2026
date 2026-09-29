@@ -17,6 +17,9 @@ export type Block =
 export const dash = (value: unknown): string =>
   value === null || value === undefined || value === "" ? "—" : String(value);
 
+/** Стадия стороны в карточке доказательства — так же, как в шапке таблиц протокола. */
+const STAGE_SHORT: Record<string, string> = { PD: "ПД", RD: "РД", ID: "ИД" };
+
 /** Способ чтения объекта (#54) словами: в протоколе он стоит рядом с долей прочитанных страниц. */
 const READING_MODE_TEXT: Record<string, string> = {
   layer: "только текстовый слой",
@@ -298,8 +301,9 @@ export function protocolBlocks(report: ProtocolReport): Block[] {
     kv([
       ["object_id / matrix_code / rule_version", `${dash(card.object_id)} / ${card.matrix_code} / ${dash(card.rule_version)}`],
       ["Локация", dash(card.location)],
-      ["expected_value (ПД)", dash(card.expected_value)],
-      ["actual_value (РД)", dash(card.actual_value)],
+      // стадия стороны — из карточки: у проверки внутри листа ИД допуск и отклонение оба с него
+      [`expected_value (${STAGE_SHORT[card.expected_stage]})`, dash(card.expected_value)],
+      [`actual_value (${STAGE_SHORT[card.actual_stage]})`, dash(card.actual_value)],
       ...(card.built_value ? [["built_value (ИД)", `${card.built_value}${card.built_check ? ` — ${card.built_check}` : ""}`] as [string, string]] : []),
       ["source_expected", sourceText(card.source_expected)],
       ["source_actual", sourceText(card.source_actual)],

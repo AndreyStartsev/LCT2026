@@ -13,6 +13,7 @@ import { config } from "./config.js";
 import { audit, notify, pool, withTransaction, type Queryable } from "./db.js";
 import { iso } from "./process.js";
 import { metrics } from "./metrics.js";
+import { sidesOf } from "./sides.js";
 
 export interface SyncRow {
   id: number;
@@ -128,21 +129,25 @@ export async function syncPayload(db: Queryable, processId: string, protocolVers
       model_version: v?.model_version,
       input_manifest_sha256: v?.input_manifest_hash,
     },
-    violations: confirmed.rows.map((r) => ({
-      finding_id: r.finding_id,
-      parameter_code: r.parameter_code,
-      location: r.location,
-      criticality: r.criticality,
-      expected_value: r.pd_value,
-      actual_value: r.rd_value,
-      decided_by: r.decided_by,
-      decided_at: iso(r.decided_at),
-      comment: r.comment,
-      evidence: (r.body?.evidence ?? []).map((e: Record<string, unknown>) => ({
-        stage: e.stage, file_id: e.file_id, sha256: e.sha256, page: e.pdf_page_number, sheet: e.document_sheet_number,
-        bbox: e.bbox_tz ?? null,
-      })),
-    })),
+    violations: confirmed.rows.map((r) => {
+      // у проверки внутри листа ИД фактическое — отклонение со схемы, а не значение РД
+      const sides = sidesOf(r);
+      return {
+        finding_id: r.finding_id,
+        parameter_code: r.parameter_code,
+        location: r.location,
+        criticality: r.criticality,
+        expected_value: sides.expected,
+        actual_value: sides.actual,
+        decided_by: r.decided_by,
+        decided_at: iso(r.decided_at),
+        comment: r.comment,
+        evidence: (r.body?.evidence ?? []).map((e: Record<string, unknown>) => ({
+          stage: e.stage, file_id: e.file_id, sha256: e.sha256, page: e.pdf_page_number, sheet: e.document_sheet_number,
+          bbox: e.bbox_tz ?? null,
+        })),
+      };
+    }),
     input_files: files.rows.map((f) => ({ file_id: f.file_id, relative_path: f.relative_path, sha256: f.file_hash, stage: f.doc_stage })),
   };
 }

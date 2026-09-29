@@ -7227,6 +7227,138 @@
         }
       }
     },
+    "/api/v1/rules/tests/activity": {
+      "get": {
+        "summary": "Прогоны правил: какие идут и когда был последний (эксперт)",
+        "tags": [
+          "rules"
+        ],
+        "description": "По каждому правилу с прогонами: сколько их, сколько сейчас в очереди или идёт, как и когда кончился последний и кто его поставил. Перечень правил отмечает по ним правила, где прогон идёт или был недавно.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rules"
+                  ],
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "description": "правила, у которых есть прогоны за две недели: прогоны старше убираются",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "code",
+                          "runs",
+                          "active",
+                          "last_status",
+                          "last_variant",
+                          "last_at"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "runs": {
+                            "type": "integer",
+                            "description": "прогонов правила"
+                          },
+                          "active": {
+                            "type": "integer",
+                            "description": "сколько сейчас в очереди или идёт"
+                          },
+                          "last_status": {
+                            "type": "string",
+                            "enum": [
+                              "QUEUED",
+                              "RUNNING",
+                              "DONE",
+                              "FAILED"
+                            ],
+                            "description": "как кончился последний прогон"
+                          },
+                          "last_variant": {
+                            "type": "boolean",
+                            "description": "последний прогон — вариант из песочницы, а не трасса"
+                          },
+                          "last_by": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "last_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "когда последний прогон закончился, а если не закончился — когда начался или поставлен"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/rules/tests/estimate": {
       "get": {
         "summary": "Примерное время пробного прогона по объектам (эксперт)",
@@ -7542,6 +7674,1312 @@
             }
           },
           "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rules/proposals": {
+      "post": {
+        "summary": "Предложить правку правила из прогона песочницы (эксперт)",
+        "tags": [
+          "rules"
+        ],
+        "description": "Вариант правила из законченного прогона песочницы сохраняется предложением вместе с разницей по объектам — снимком: прогон убирается через две недели, предложение остаётся. Правила прода не меняются: разработчик переносит правку в файл правил через PR и гейт качества и отмечает статус. Правило, которое изменилось после прогона, — 409 RULE_CHANGED: разница говорила бы о другом правиле.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "test_id"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "test_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "queue",
+                    "draft",
+                    "file",
+                    "variant",
+                    "status",
+                    "created_by",
+                    "created_at",
+                    "totals",
+                    "rule",
+                    "objects"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "queue": {
+                      "type": "integer"
+                    },
+                    "draft": {
+                      "type": "boolean",
+                      "description": "правка черновика правила, а не рабочего"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "файл правил, к которому прикладывается правка"
+                    },
+                    "variant": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "поля правила поверх рабочего"
+                    },
+                    "comment": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "зачем правка — словами эксперта"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "NEW",
+                        "APPLIED",
+                        "REJECTED"
+                      ],
+                      "description": "NEW — ждёт разработчика, APPLIED — перенесено, REJECTED — отклонено"
+                    },
+                    "status_reason": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "причина отклонения или что сделано при переносе"
+                    },
+                    "status_by": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "created_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "test_id": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "прогон песочницы, из которого предложение; прогоны старше двух недель убираются"
+                    },
+                    "fingerprint": {
+                      "type": "string",
+                      "description": "снимок правил, на котором предложено"
+                    },
+                    "totals": {
+                      "type": "object",
+                      "required": [
+                        "objects",
+                        "done",
+                        "failed",
+                        "changed_objects",
+                        "changes",
+                        "added",
+                        "removed",
+                        "changed",
+                        "disputed"
+                      ],
+                      "properties": {
+                        "objects": {
+                          "type": "integer",
+                          "description": "объектов в прогоне"
+                        },
+                        "done": {
+                          "type": "integer",
+                          "description": "из них посчитано"
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "не прогнано: сбой на объекте"
+                        },
+                        "changed_objects": {
+                          "type": "integer",
+                          "description": "на скольких объектах вариант меняет записи"
+                        },
+                        "changes": {
+                          "type": "integer",
+                          "description": "сколько записей меняется"
+                        },
+                        "added": {
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "type": "integer"
+                        },
+                        "changed": {
+                          "type": "integer"
+                        },
+                        "disputed": {
+                          "type": "integer",
+                          "description": "перемены записей, по которым инспектор уже решил"
+                        }
+                      }
+                    },
+                    "rule": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "правило из файла на момент предложения"
+                    },
+                    "objects": {
+                      "type": "array",
+                      "description": "объекты, где вариант меняет записи, и те, где прогон не удался",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "process_id",
+                          "status",
+                          "same",
+                          "changes"
+                        ],
+                        "properties": {
+                          "process_id": {
+                            "type": "string"
+                          },
+                          "object_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "object_name": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "same": {
+                            "type": "integer"
+                          },
+                          "changes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Предложения правки правил (эксперт, администратор)",
+        "tags": [
+          "rules"
+        ],
+        "description": "Последние 200 предложений, новые сверху; отбор по параметру и статусу. Разница по объектам — итогами.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "in": "query",
+            "name": "code",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NEW",
+                "APPLIED",
+                "REJECTED"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "proposals"
+                  ],
+                  "properties": {
+                    "proposals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "code",
+                          "queue",
+                          "draft",
+                          "file",
+                          "variant",
+                          "status",
+                          "created_by",
+                          "created_at",
+                          "totals"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "queue": {
+                            "type": "integer"
+                          },
+                          "draft": {
+                            "type": "boolean",
+                            "description": "правка черновика правила, а не рабочего"
+                          },
+                          "file": {
+                            "type": "string",
+                            "description": "файл правил, к которому прикладывается правка"
+                          },
+                          "variant": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "description": "поля правила поверх рабочего"
+                          },
+                          "comment": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "зачем правка — словами эксперта"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "NEW",
+                              "APPLIED",
+                              "REJECTED"
+                            ],
+                            "description": "NEW — ждёт разработчика, APPLIED — перенесено, REJECTED — отклонено"
+                          },
+                          "status_reason": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "причина отклонения или что сделано при переносе"
+                          },
+                          "status_by": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "test_id": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "прогон песочницы, из которого предложение; прогоны старше двух недель убираются"
+                          },
+                          "fingerprint": {
+                            "type": "string",
+                            "description": "снимок правил, на котором предложено"
+                          },
+                          "totals": {
+                            "type": "object",
+                            "required": [
+                              "objects",
+                              "done",
+                              "failed",
+                              "changed_objects",
+                              "changes",
+                              "added",
+                              "removed",
+                              "changed",
+                              "disputed"
+                            ],
+                            "properties": {
+                              "objects": {
+                                "type": "integer",
+                                "description": "объектов в прогоне"
+                              },
+                              "done": {
+                                "type": "integer",
+                                "description": "из них посчитано"
+                              },
+                              "failed": {
+                                "type": "integer",
+                                "description": "не прогнано: сбой на объекте"
+                              },
+                              "changed_objects": {
+                                "type": "integer",
+                                "description": "на скольких объектах вариант меняет записи"
+                              },
+                              "changes": {
+                                "type": "integer",
+                                "description": "сколько записей меняется"
+                              },
+                              "added": {
+                                "type": "integer"
+                              },
+                              "removed": {
+                                "type": "integer"
+                              },
+                              "changed": {
+                                "type": "integer"
+                              },
+                              "disputed": {
+                                "type": "integer",
+                                "description": "перемены записей, по которым инспектор уже решил"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rules/proposals/{id}": {
+      "get": {
+        "summary": "Предложение правки с разницей по объектам (эксперт, администратор)",
+        "tags": [
+          "rules"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "queue",
+                    "draft",
+                    "file",
+                    "variant",
+                    "status",
+                    "created_by",
+                    "created_at",
+                    "totals",
+                    "rule",
+                    "objects"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "queue": {
+                      "type": "integer"
+                    },
+                    "draft": {
+                      "type": "boolean",
+                      "description": "правка черновика правила, а не рабочего"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "файл правил, к которому прикладывается правка"
+                    },
+                    "variant": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "поля правила поверх рабочего"
+                    },
+                    "comment": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "зачем правка — словами эксперта"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "NEW",
+                        "APPLIED",
+                        "REJECTED"
+                      ],
+                      "description": "NEW — ждёт разработчика, APPLIED — перенесено, REJECTED — отклонено"
+                    },
+                    "status_reason": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "причина отклонения или что сделано при переносе"
+                    },
+                    "status_by": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "created_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "test_id": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "прогон песочницы, из которого предложение; прогоны старше двух недель убираются"
+                    },
+                    "fingerprint": {
+                      "type": "string",
+                      "description": "снимок правил, на котором предложено"
+                    },
+                    "totals": {
+                      "type": "object",
+                      "required": [
+                        "objects",
+                        "done",
+                        "failed",
+                        "changed_objects",
+                        "changes",
+                        "added",
+                        "removed",
+                        "changed",
+                        "disputed"
+                      ],
+                      "properties": {
+                        "objects": {
+                          "type": "integer",
+                          "description": "объектов в прогоне"
+                        },
+                        "done": {
+                          "type": "integer",
+                          "description": "из них посчитано"
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "не прогнано: сбой на объекте"
+                        },
+                        "changed_objects": {
+                          "type": "integer",
+                          "description": "на скольких объектах вариант меняет записи"
+                        },
+                        "changes": {
+                          "type": "integer",
+                          "description": "сколько записей меняется"
+                        },
+                        "added": {
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "type": "integer"
+                        },
+                        "changed": {
+                          "type": "integer"
+                        },
+                        "disputed": {
+                          "type": "integer",
+                          "description": "перемены записей, по которым инспектор уже решил"
+                        }
+                      }
+                    },
+                    "rule": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "правило из файла на момент предложения"
+                    },
+                    "objects": {
+                      "type": "array",
+                      "description": "объекты, где вариант меняет записи, и те, где прогон не удался",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "process_id",
+                          "status",
+                          "same",
+                          "changes"
+                        ],
+                        "properties": {
+                          "process_id": {
+                            "type": "string"
+                          },
+                          "object_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "object_name": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "same": {
+                            "type": "integer"
+                          },
+                          "changes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rules/proposals/{id}/patch": {
+      "get": {
+        "summary": "Правка файла правил по предложению — JSON (эксперт, администратор)",
+        "tags": [
+          "rules"
+        ],
+        "description": "Документ правки: файл правил от корня репозитория и операции RFC 6902 — на каждое поле варианта проверка прежнего значения и замена. Правило, изменившееся с предложения, проверку не пройдёт, и правка не наложится. Применяет `tools/rule_proposals.py apply`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "format",
+                    "file",
+                    "patch",
+                    "proposal",
+                    "totals"
+                  ],
+                  "properties": {
+                    "format": {
+                      "type": "integer",
+                      "description": "формат документа правки"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "файл правил от корня репозитория"
+                    },
+                    "patch": {
+                      "type": "array",
+                      "description": "правка по RFC 6902: проверка прежнего значения и замена",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "path",
+                          "value"
+                        ],
+                        "properties": {
+                          "op": {
+                            "type": "string",
+                            "enum": [
+                              "test",
+                              "replace",
+                              "add"
+                            ]
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "value": {}
+                        }
+                      }
+                    },
+                    "proposal": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "code",
+                        "created_by",
+                        "created_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "comment": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "created_by": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "fingerprint": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "required": [
+                        "objects",
+                        "done",
+                        "failed",
+                        "changed_objects",
+                        "changes",
+                        "added",
+                        "removed",
+                        "changed",
+                        "disputed"
+                      ],
+                      "properties": {
+                        "objects": {
+                          "type": "integer",
+                          "description": "объектов в прогоне"
+                        },
+                        "done": {
+                          "type": "integer",
+                          "description": "из них посчитано"
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "не прогнано: сбой на объекте"
+                        },
+                        "changed_objects": {
+                          "type": "integer",
+                          "description": "на скольких объектах вариант меняет записи"
+                        },
+                        "changes": {
+                          "type": "integer",
+                          "description": "сколько записей меняется"
+                        },
+                        "added": {
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "type": "integer"
+                        },
+                        "changed": {
+                          "type": "integer"
+                        },
+                        "disputed": {
+                          "type": "integer",
+                          "description": "перемены записей, по которым инспектор уже решил"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rules/proposals/{id}/status": {
+      "post": {
+        "summary": "Статус предложения правки (администратор)",
+        "tags": [
+          "rules"
+        ],
+        "description": "Разработчик отмечает, что стало с предложением: APPLIED — правка перенесена в файл правил, REJECTED — отклонена, причина обязательна: эксперт видит её у предложения. NEW возвращает предложение в ожидание.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "NEW",
+                      "APPLIED",
+                      "REJECTED"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "queue",
+                    "draft",
+                    "file",
+                    "variant",
+                    "status",
+                    "created_by",
+                    "created_at",
+                    "totals",
+                    "rule",
+                    "objects"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "queue": {
+                      "type": "integer"
+                    },
+                    "draft": {
+                      "type": "boolean",
+                      "description": "правка черновика правила, а не рабочего"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "файл правил, к которому прикладывается правка"
+                    },
+                    "variant": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "поля правила поверх рабочего"
+                    },
+                    "comment": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "зачем правка — словами эксперта"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "NEW",
+                        "APPLIED",
+                        "REJECTED"
+                      ],
+                      "description": "NEW — ждёт разработчика, APPLIED — перенесено, REJECTED — отклонено"
+                    },
+                    "status_reason": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "причина отклонения или что сделано при переносе"
+                    },
+                    "status_by": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "created_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "test_id": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "прогон песочницы, из которого предложение; прогоны старше двух недель убираются"
+                    },
+                    "fingerprint": {
+                      "type": "string",
+                      "description": "снимок правил, на котором предложено"
+                    },
+                    "totals": {
+                      "type": "object",
+                      "required": [
+                        "objects",
+                        "done",
+                        "failed",
+                        "changed_objects",
+                        "changes",
+                        "added",
+                        "removed",
+                        "changed",
+                        "disputed"
+                      ],
+                      "properties": {
+                        "objects": {
+                          "type": "integer",
+                          "description": "объектов в прогоне"
+                        },
+                        "done": {
+                          "type": "integer",
+                          "description": "из них посчитано"
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "не прогнано: сбой на объекте"
+                        },
+                        "changed_objects": {
+                          "type": "integer",
+                          "description": "на скольких объектах вариант меняет записи"
+                        },
+                        "changes": {
+                          "type": "integer",
+                          "description": "сколько записей меняется"
+                        },
+                        "added": {
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "type": "integer"
+                        },
+                        "changed": {
+                          "type": "integer"
+                        },
+                        "disputed": {
+                          "type": "integer",
+                          "description": "перемены записей, по которым инспектор уже решил"
+                        }
+                      }
+                    },
+                    "rule": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "правило из файла на момент предложения"
+                    },
+                    "objects": {
+                      "type": "array",
+                      "description": "объекты, где вариант меняет записи, и те, где прогон не удался",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "process_id",
+                          "status",
+                          "same",
+                          "changes"
+                        ],
+                        "properties": {
+                          "process_id": {
+                            "type": "string"
+                          },
+                          "object_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "object_name": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "same": {
+                            "type": "integer"
+                          },
+                          "changes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Default Response",
             "content": {
               "application/json": {

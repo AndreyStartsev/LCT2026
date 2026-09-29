@@ -17,6 +17,7 @@ const NOT_READY = "33333333-3333-4333-8333-333333333333";
 let testRow = null;
 let resultRows = [];
 let estimateRows = [];
+let activityRows = [];
 let recentRows = [];
 let queuedAhead = 0;
 const rows = (list) => ({ rows: list, rowCount: list.length });
@@ -28,6 +29,7 @@ mock.module("../dist/db.js", {
       async query(sql, params) {
         queries.push({ sql, params });
         if (/from rule_snapshots/.test(sql)) return rows(snapshotRow ? [snapshotRow] : []);
+        if (/distinct on \(code\)/.test(sql)) return rows(activityRows);
         if (/interval '1 hour'/.test(sql)) return rows(recentRows);
         if (/with l as/.test(sql)) return rows(estimateRows);
         if (/as ahead/.test(sql)) return rows([{ ahead: queuedAhead }]);
@@ -422,6 +424,31 @@ test("примерное время прогона: по страницам пр
     assert.deepEqual(got.json().processes.map((p) => [p.trace_s, p.variant_s]), [[33.4, 54.6], [226, 375.7]]);
     for (const role of ["inspector", "admin"]) {
       assert.equal((await app.inject({ method: "GET", url: "/api/v1/rules/tests/estimate", headers: as(role) })).statusCode, 403);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
+test("прогоны правил для перечня: сколько идёт, когда и чей последний; только эксперту", async () => {
+  const app = await buildApp();
+  await app.ready();
+  const as = (role) => ({ authorization: `Bearer ${app.jwt.sign({ sub: role, role })}` });
+  activityRows = [
+    { code: "PZ-002", status: "RUNNING", variant: { compare: { threshold: 0.05 } }, created_by: "exp", at: new Date("2026-09-29T10:00:05Z"), runs: 3, active: 1 },
+    { code: "SPZU-030", status: "DONE", variant: null, created_by: "exp2", at: new Date("2026-09-28T16:14:00Z"), runs: "1", active: "0" },
+  ];
+  try {
+    const got = await app.inject({ method: "GET", url: "/api/v1/rules/tests/activity", headers: as("expert") });
+    assert.equal(got.statusCode, 200, got.body);
+    assert.deepEqual(got.json().rules, [
+      { code: "PZ-002", runs: 3, active: 1, last_status: "RUNNING", last_variant: true, last_by: "exp", last_at: "2026-09-29T10:00:05.000Z" },
+      { code: "SPZU-030", runs: 1, active: 0, last_status: "DONE", last_variant: false, last_by: "exp2", last_at: "2026-09-28T16:14:00.000Z" },
+    ]);
+    const sql = queries.at(-1).sql;
+    assert.match(sql, /created_at > now\(\) - interval '6 hours'/, "брошенная воркером строка «идёт» не светится вечно");
+    for (const role of ["inspector", "admin"]) {
+      assert.equal((await app.inject({ method: "GET", url: "/api/v1/rules/tests/activity", headers: as(role) })).statusCode, 403, role);
     }
   } finally {
     await app.close();

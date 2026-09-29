@@ -6,6 +6,7 @@
 // доказательств и правила подсчёта. Часть, не зависящую от решений инспектора, воркер
 // кладёт в report протокола (pipeline/protocol.py); решения берутся из базы в момент
 // выгрузки, поэтому выгрузка всегда совпадает с тем, что видно на экране верификации.
+import { sidesOf } from "./sides.js";
 
 type Json = Record<string, any>;
 
@@ -170,6 +171,8 @@ function recordView(row: Json, catalog: Map<string, Json>) {
   const param = catalog.get(row.parameter_code) ?? {};
   const criticality = row.criticality ?? param.criticality ?? null;
   const locations: string[] = Array.isArray(body.locations) ? body.locations.map(String) : [];
+  // значения по стадиям: у проверки внутри листа ИД в колонках ПД и РД пусто, допуск — в «Отклонении»
+  const values = sidesOf(row).by_stage;
   return {
     finding_id: row.finding_id,
     parameter_code: row.parameter_code,
@@ -177,9 +180,9 @@ function recordView(row: Json, catalog: Map<string, Json>) {
     section: param.section ?? null,
     location: locations.join(", ") || text(row.location),
     location_type: text(body.location_type),
-    pd_value: text(row.pd_value),
-    rd_value: text(row.rd_value),
-    id_value: text(body.id_value),
+    pd_value: text(values.PD),
+    rd_value: text(values.RD),
+    id_value: text(values.ID),
     deviation: text(body.extraction?.detail),
     comparison_result: text(body.comparison_result),
     status,
@@ -204,6 +207,9 @@ function evidenceCard(row: Json, record: ReturnType<typeof recordView>, matrixVe
   const side = (stages: string[]) => evidence.filter((e) => stages.includes(e.stage)).map(source);
   const revisions = (stage: "pd" | "rd") => body.extraction?.[stage]?.revisions ?? [];
   const decision = record.decision;
+  // ожидаемое и фактическое со своими стадиями: обычно ПД и РД, у проверки внутри листа ИД — оба с него
+  const sides = sidesOf(row);
+  const readBy = (key: string) => (body.extraction?.[key]?.text_source === "RECOGNIZED" ? "RECOGNIZED" : "TEXT_LAYER");
   return {
     finding_id: record.finding_id,
     object_id: body.object_id ?? null,
@@ -211,21 +217,23 @@ function evidenceCard(row: Json, record: ReturnType<typeof recordView>, matrixVe
     rule_version: matrixVersion,
     parameter_name: record.parameter_name,
     location: record.location,
-    expected_value: record.pd_value,
-    actual_value: record.rd_value,
+    expected_value: text(sides.expected),
+    actual_value: text(sides.actual),
+    expected_stage: sides.expected_stage,
+    actual_stage: sides.actual_stage,
     // третий массив (#42): что построено по исполнительной документации и итог сверки с ней
-    built_value: record.id_value,
+    built_value: text(sides.built),
     built_check: text(body.extraction?.id_check),
-    source_expected: side(["PD"]),
-    source_actual: side(["RD", "ID"]),
+    source_expected: side(sides.expected_sources),
+    source_actual: side(sides.actual_sources),
     superseded_revisions: { expected: revisions("pd"), actual: revisions("rd") },
     rule_basis: text(body.extraction?.rule_basis),
     // Чем прочитано значение каждой стороны. На сканах текст даёт распознавание, и оно путает
     // цифры: «B50» рядом с «B30» на одном листе. Инспектор должен видеть это в карточке,
     // а не только в находке (#52).
     value_read_by: {
-      expected: body.extraction?.pd?.text_source === "RECOGNIZED" ? "RECOGNIZED" : "TEXT_LAYER",
-      actual: body.extraction?.rd?.text_source === "RECOGNIZED" ? "RECOGNIZED" : "TEXT_LAYER",
+      expected: readBy(sides.read_by.expected),
+      actual: readBy(sides.read_by.actual),
     },
     deviation: record.deviation,
     // согласованное изменение называет инспектор при отклонении, других сведений о нём у системы нет

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   api,
+  ApiFailure,
   currentLogin,
   type NumericKey,
   type ObjectItem,
   type RuleEstimate,
   type RuleItem,
   type RuleLogic,
+  type RuleProposal,
   type RuleTest,
   type TestCandidate,
   type TestChange,
@@ -21,6 +23,12 @@ interface Props {
   /** правило, которое прогоняется: рабочее, а без него — черновик */
   logic: RuleLogic;
   objects: ObjectItem[];
+  /** предложения правки этого правила: прогон, из которого уже предложено, второй раз не предлагается */
+  proposals: RuleProposal[];
+  /** предложение сохранено — список предложений на странице обновляется */
+  onProposed: () => void;
+  /** прогон поставлен или закончился — пометка прогонов в перечне обновляется */
+  onRunChange?: () => void;
 }
 
 const NUMERIC_LABEL: Record<NumericKey, { title: string }> = {
@@ -87,7 +95,7 @@ function took(run: RuleTest): string | null {
   return s < 60 ? `${Math.max(1, Math.round(s))} с` : `${Math.round(s / 60)} мин`;
 }
 
-function when(iso: string): string {
+export function when(iso: string): string {
   const d = new Date(iso);
   const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   return d.toDateString() === new Date().toDateString()
@@ -96,7 +104,7 @@ function when(iso: string): string {
 }
 
 /** Что поменяно в варианте — словами: «порог 0,05; подписи: 2». */
-function describeVariant(variant: Record<string, unknown>): string {
+export function describeVariant(variant: Record<string, unknown>): string {
   const out: string[] = [];
   const compare = (variant.compare ?? {}) as Partial<Record<NumericKey, number>>;
   for (const [key, value] of Object.entries(compare)) {
@@ -270,7 +278,7 @@ function Trace({ trace, title }: { trace: TestTrace; title: string }) {
   );
 }
 
-function Changes({ changes }: { changes: TestChange[] }) {
+export function Changes({ changes }: { changes: TestChange[] }) {
   return (
     <ul className="rules-changes">
       {changes.map((c) => (
@@ -357,6 +365,75 @@ function Summary({ run }: { run: RuleTest }) {
 }
 
 /**
+ * Предложить вариант правкой правила (#224): вариант с разницей по объектам сохраняется на стенде,
+ * разработчик переносит его в правила сервиса после проверки качества и отмечает, что сделано.
+ */
+function Propose({ run, proposed, onProposed }: { run: RuleTest; proposed: RuleProposal | null; onProposed: () => void }) {
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (proposed) {
+    return (
+      <div className="rules-propose small">
+        Вариант предложен {when(proposed.created_at)} — {PROPOSAL_WORD[proposed.status]}. Предложение — ниже, в «Предложениях
+        правки».
+      </div>
+    );
+  }
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.ruleProposalCreate({ test_id: run.id, ...(comment.trim() ? { comment: comment.trim() } : {}) });
+      onProposed();
+    } catch (e) {
+      // вариант уже предложен из другой вкладки — показать его, а не ошибку
+      if (e instanceof ApiFailure && e.code === "PROPOSAL_EXISTS") onProposed();
+      else setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="rules-propose">
+      <label className="rules-field">
+        <span className="k">Зачем правка — для разработчика</span>
+        <textarea
+          rows={2}
+          maxLength={2000}
+          value={comment}
+          placeholder="Например: подпись шире — находит «объём здания» в пояснительной записке"
+          onChange={(e) => setComment(e.target.value)}
+        />
+      </label>
+      <div className="rules-check-row">
+        <button type="button" className="btn" disabled={busy} onClick={submit}>
+          Предложить правку
+        </button>
+        <span className="small muted">
+          {run.total === 1
+            ? "Вариант проверен на одном объекте: перед переносом разработчик прогонит его на всех."
+            : "Правила сервиса предложение не меняет: разработчик перенесёт правку после проверки качества."}
+        </span>
+      </div>
+      {error && <div className="alert">{error}</div>}
+    </div>
+  );
+}
+
+/** Статус предложения словами — те же, что в «Предложениях правки»; короткие — для пометки в перечне. */
+export const PROPOSAL_WORD: Record<RuleProposal["status"], string> = {
+  NEW: "ждёт разработчика",
+  APPLIED: "перенесено в правила",
+  REJECTED: "отклонено",
+};
+export const PROPOSAL_MARK: Record<RuleProposal["status"], string> = {
+  NEW: "предложено",
+  APPLIED: "перенесено",
+  REJECTED: "отклонено",
+};
+
+/**
  * Проверка правила на объектах стенда (#222, #223). «Как правило решило» — трасса рабочего правила на
  * выбранном объекте, у любого правила. Песочница — вариант правила: у паттерна подписи, исключения и порог,
  * у правила с моделью порог и допуск; по умолчанию на выбранном объекте, по желанию — на всех. У правила
@@ -364,7 +441,7 @@ function Summary({ run }: { run: RuleTest }) {
  * Ничего на стенде не меняется: прогон считает в воркере, что дало бы правило, и показывает разницу
  * с рабочим на тех же данных. Прогон живёт в сервисе: вернувшись к правилу, эксперт видит свой прогон снова.
  */
-export default function RuleCheck({ item, logic, objects }: Props) {
+export default function RuleCheck({ item, logic, objects, proposals, onProposed, onRunChange }: Props) {
   const ready = useMemo(
     () =>
       objects
@@ -435,6 +512,7 @@ export default function RuleCheck({ item, logic, objects }: Props) {
         .then((next) => {
           setRun(next);
           if (next.status === "DONE" || next.status === "FAILED") {
+            onRunChange?.();
             // замер этого прогона уточняет оценку следующих
             loadEstimates(true)
               .then(setEstimate)
@@ -458,8 +536,10 @@ export default function RuleCheck({ item, logic, objects }: Props) {
     0;
   const oneTrace = about(estimate?.byObject.get(objectId)?.trace_s);
   const oneVariant = about(estimate?.byObject.get(objectId)?.variant_s);
-  const allVariant = estimate
-    ? about(ready.reduce((sum, o) => sum + (estimate.byObject.get(o.object_id)?.variant_s ?? 0), 0))
+  // сумма — только по объектам с оценкой: без неё «около 1 с» на все объекты обманывало бы
+  const known = estimate ? ready.filter((o) => estimate.byObject.has(o.object_id)) : [];
+  const allVariant = known.length
+    ? about(known.reduce((sum, o) => sum + (estimate!.byObject.get(o.object_id)?.variant_s ?? 0), 0))
     : null;
   const hint = estimateHint(estimate?.speed);
   const remaining = (() => {
@@ -480,6 +560,7 @@ export default function RuleCheck({ item, logic, objects }: Props) {
         ? { code: item.code, variant, ...(scope === "one" ? { process_ids: [processId!], trace: true } : {}) }
         : { code: item.code, process_ids: [processId!], trace: true };
       setRun(await api.ruleTestStart(body));
+      onRunChange?.();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -632,6 +713,9 @@ export default function RuleCheck({ item, logic, objects }: Props) {
           {single?.status === "DONE" && single.result && <ObjectResult result={single.result} />}
           {single?.status === "FAILED" && run.status !== "FAILED" && <div className="alert">{single.error}</div>}
           {!single && run.results && run.results.some((r) => r.status !== "QUEUED") && <Summary run={run} />}
+          {run.variant && run.status === "DONE" && (
+            <Propose run={run} proposed={proposals.find((p) => p.test_id === run.id) ?? null} onProposed={onProposed} />
+          )}
         </div>
       )}
     </section>

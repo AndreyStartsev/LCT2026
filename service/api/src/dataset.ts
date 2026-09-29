@@ -17,6 +17,7 @@ import { audit, pool, withTransaction, type Queryable } from "./db.js";
 import { ApiError } from "./errors.js";
 import { iso } from "./process.js";
 import { errorResponses } from "./schemas.js";
+import { sidesOf } from "./sides.js";
 
 export const DATASET_LABELS = ["CONFIRMED_VIOLATION", "NEGATIVE_VERIFIED"];
 
@@ -67,6 +68,7 @@ async function draftItems(db: Queryable): Promise<Item[]> {
   );
   return rows.map((r) => {
     const body = r.body ?? {};
+    const sides = sidesOf(r);
     return {
       finding_row_id: r.id,
       process_id: r.process_id,
@@ -82,7 +84,7 @@ async function draftItems(db: Queryable): Promise<Item[]> {
       decided_at: iso(r.decided_at),
       evidence: Array.isArray(body.evidence) ? body.evidence : [],
       card: {
-        expected_value: r.pd_value, actual_value: r.rd_value, rule_basis: body.extraction?.rule_basis ?? null,
+        expected_value: sides.expected, actual_value: sides.actual, rule_basis: body.extraction?.rule_basis ?? null,
         detail: body.extraction?.detail ?? null, comparison_result: body.comparison_result ?? null,
       },
     };

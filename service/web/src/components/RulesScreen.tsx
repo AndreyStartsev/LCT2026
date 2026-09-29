@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { api, type Engine, type ObjectItem, type RuleItem, type RuleLogic, type RuleState, type RulesView } from "../api";
+import {
+  api,
+  type Engine,
+  type ObjectItem,
+  type RuleActivity,
+  type RuleItem,
+  type RuleLogic,
+  type RuleProposal,
+  type RuleState,
+  type RulesView,
+} from "../api";
 import { ENGINE, FREE_SEARCH_KINDS, MATRIX_SECTION, SPECIALIST, when } from "../labels";
 import { SpecialistMark } from "./Marks";
-import RuleCheck from "./RuleCheck";
+import RuleCheck, { PROPOSAL_MARK, when as shortWhen } from "./RuleCheck";
+import RuleProposals from "./RuleProposals";
 import Tip from "./Tip";
 
 /**
@@ -148,7 +159,56 @@ function Logic({ logic, title }: { logic: RuleLogic; title: string }) {
   );
 }
 
-function ParamCard({ item, objects }: { item: RuleItem; objects: ObjectItem[] }) {
+/**
+ * Прогоны правила в перечне (Р-165): идёт или был за последний час — зелёный кружок, прогоны раньше —
+ * коричневый. Оттенки свои, не карандаши решения: кружок — о прогонах эксперта, а не о решении инспектора.
+ */
+const FRESH_MS = 3600 * 1000;
+type RunState = "running" | "fresh" | "old";
+const RUN_END: Record<RuleActivity["last_status"], string> = {
+  DONE: "готово",
+  FAILED: "не выполнен",
+  QUEUED: "в очереди",
+  RUNNING: "идёт",
+};
+
+function runState(a: RuleActivity, now: number): RunState {
+  if (a.active > 0) return "running";
+  return now - Date.parse(a.last_at) <= FRESH_MS ? "fresh" : "old";
+}
+
+function runLabel(a: RuleActivity, state: RunState): string {
+  const what = a.last_variant ? "вариант" : "трасса";
+  const who = a.last_by ? ` · ${a.last_by}` : "";
+  if (state === "running") {
+    const head = a.active > 1 ? `Идут прогоны: ${a.active}` : a.last_status === "QUEUED" ? "Прогон в очереди" : "Идёт прогон";
+    return `${head} · ${what}${who}`;
+  }
+  const head = state === "fresh" ? "Прогон за последний час" : "Последний прогон";
+  const more = a.runs > 1 ? ` · прогонов за две недели: ${a.runs}` : "";
+  return `${head}: ${shortWhen(a.last_at)} · ${what} · ${RUN_END[a.last_status]}${who}${more}`;
+}
+
+function RunDot({ a, now }: { a: RuleActivity | undefined; now: number }) {
+  if (!a) return null;
+  const state = runState(a, now);
+  const label = runLabel(a, state);
+  return <span className={`rules-run-dot r-${state}`} role="img" aria-label={label} title={label} />;
+}
+
+function ParamCard({
+  item,
+  objects,
+  proposals,
+  onProposed,
+  onRunChange,
+}: {
+  item: RuleItem;
+  objects: ObjectItem[];
+  proposals: RuleProposal[];
+  onProposed: () => void;
+  onRunChange: () => void;
+}) {
   const logic = tested(item);
   return (
     <>
@@ -182,7 +242,18 @@ function ParamCard({ item, objects }: { item: RuleItem; objects: ObjectItem[] })
       {item.state_note && <div className="note-line">{item.state_note}</div>}
       {item.rule && <Logic logic={item.rule} title="Как проверяется" />}
       {item.draft && <Logic logic={item.draft} title={item.rule ? "Черновик новой редакции правила" : "Черновик правила"} />}
-      {logic && <RuleCheck key={item.code} item={item} logic={logic} objects={objects} />}
+      {logic && (
+        <RuleCheck
+          key={item.code}
+          item={item}
+          logic={logic}
+          objects={objects}
+          proposals={proposals}
+          onProposed={onProposed}
+          onRunChange={onRunChange}
+        />
+      )}
+      <RuleProposals proposals={proposals} />
     </>
   );
 }
@@ -242,6 +313,7 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
   const [engine, setEngine] = useState<Engine | "all">("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [proposals, setProposals] = useState<RuleProposal[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -253,6 +325,45 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
       })
       .catch((e) => setError((e as Error).message));
   }, []);
+
+  // предложения правки (#224) — все сразу: пометка в перечне и раздел в карточке правила
+  function loadProposals() {
+    api
+      .ruleProposals()
+      .then((r) => setProposals(r.proposals))
+      .catch(() => {
+        // без предложений страница правил работает как обычно
+      });
+  }
+  useEffect(loadProposals, []);
+  const proposalsOf = useMemo(() => {
+    const out = new Map<string, RuleProposal[]>();
+    for (const p of proposals) out.set(p.code, [...(out.get(p.code) ?? []), p]);
+    return out;
+  }, [proposals]);
+  const waiting = proposals.filter((p) => p.status === "NEW").length;
+
+  // прогоны по правилам (Р-165): пока что-то идёт — раз в 15 с, иначе раз в минуту — так и свежий прогон
+  // через час становится давним без перезагрузки страницы
+  const [activity, setActivity] = useState<Map<string, RuleActivity>>(new Map());
+  const [now, setNow] = useState(() => Date.now());
+  function loadActivity() {
+    api
+      .ruleActivity()
+      .then((r) => {
+        setActivity(new Map(r.rules.map((a) => [a.code, a])));
+        setNow(Date.now());
+      })
+      .catch(() => {
+        // без пометки прогонов перечень работает как обычно
+      });
+  }
+  useEffect(loadActivity, []);
+  const anyActive = [...activity.values()].some((a) => a.active > 0);
+  useEffect(() => {
+    const timer = window.setInterval(loadActivity, anyActive ? 15_000 : 60_000);
+    return () => window.clearInterval(timer);
+  }, [anyActive]);
 
   const entries = useMemo<Entry[]>(() => {
     if (!data) return [];
@@ -345,6 +456,16 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
               <span className="k">Черновики</span>
               <span className="v">{counts.draft}</span>
             </div>
+            {proposals.length > 0 && (
+              <Tip text="Предложения правки из песочницы: сколько ждут разработчика, из всех предложенных">
+                <div className="head-cell">
+                  <span className="k">Предложения</span>
+                  <span className="v">
+                    {waiting} из {proposals.length}
+                  </span>
+                </div>
+              </Tip>
+            )}
             <Tip
               text={
                 "Правила, которыми сервис сейчас разбирает документы: обработка передаёт их при каждом запуске. " +
@@ -409,6 +530,12 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
                     </Tip>
                   ))}
               </div>
+              {activity.size > 0 && (
+                <div className="rules-run-legend small muted">
+                  <span className="rules-run-dot r-fresh" aria-hidden="true" /> прогон идёт или был за последний час
+                  <span className="rules-run-dot r-old" aria-hidden="true" /> прогоны раньше
+                </div>
+              )}
             </div>
           )}
 
@@ -441,6 +568,7 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
                         >
                           <span className="row-top">
                             <span>{e.kind === "param" ? e.item.code : e.code}</span>
+                            {e.kind === "param" && <RunDot a={activity.get(e.item.code)} now={now} />}
                             {e.kind === "param" && tested(e.item)?.engine && (
                               <span className={`rules-engine e-${tested(e.item)!.engine}`}>{ENGINE[tested(e.item)!.engine!].word}</span>
                             )}
@@ -448,6 +576,12 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
                                 говорит; в карточке состояние видно всегда */}
                             {e.kind === "param" && e.item.state !== "ACTIVE" && (
                               <span className={`rules-state s-${e.item.state}`}>{STATE[e.item.state].word}</span>
+                            )}
+                            {/* последнее предложение правки правила — его статус */}
+                            {e.kind === "param" && proposalsOf.get(e.item.code)?.[0] && (
+                              <span className={`rules-pmark ps-${proposalsOf.get(e.item.code)![0].status}`}>
+                                {PROPOSAL_MARK[proposalsOf.get(e.item.code)![0].status]}
+                              </span>
                             )}
                           </span>
                           <span className="row-title">{e.kind === "param" ? e.item.name : e.title}</span>
@@ -463,7 +597,13 @@ export default function RulesScreen({ objects }: { objects: ObjectItem[] }) {
               {current ? (
                 <div className="rules-card-body">
                   {current.kind === "param" ? (
-                    <ParamCard item={current.item} objects={objects} />
+                    <ParamCard
+                      item={current.item}
+                      objects={objects}
+                      proposals={proposalsOf.get(current.item.code) ?? []}
+                      onProposed={loadProposals}
+                      onRunChange={loadActivity}
+                    />
                   ) : (
                     <FreeCard code={current.code} title={current.title} guidance={data.guidance} />
                   )}

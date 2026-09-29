@@ -3,6 +3,7 @@
 // порогом, в каких документах ищет значение и почему параметр не проверяется — всё берётся из
 // самих файлов правил; словами здесь только то, чего в файлах нет: виды сравнения, найденные
 // в разборе, но не описанные в `compare_types` очереди.
+import { createHash } from "node:crypto";
 
 type Json = Record<string, any>;
 
@@ -497,4 +498,167 @@ export function variantProblems(variant: unknown, logic: RuleLogic): string[] {
     }
   }
   return out;
+}
+
+// ── Предложения правки из песочницы (#224, Р-164) ────────────────────────────────────────────────
+
+/** Где правило записано: очередь, черновик ли, файл от корня репозитория и само правило из файла. */
+export interface RuleSource {
+  queue: number;
+  draft: boolean;
+  file: string;
+  rule: Json;
+}
+
+/**
+ * Правило, которое прогоняет воркер, как оно записано в файле: рабочее из очереди прода, а без него —
+ * черновик (тот же порядок, что `locate` в `pipeline/rule_test.py`). К нему прикладывается правка.
+ */
+export function ruleSource(body: Json, code: string): RuleSource | null {
+  const byQueue = (docs: Record<string, Json> | undefined) =>
+    Object.entries(docs ?? {}).sort(([a], [b]) => Number(a) - Number(b));
+  for (const [queue, doc] of byQueue(body?.queues)) {
+    const rule = doc?.parameters?.[code];
+    if (rule && rule.implemented && !rule.out_of_scope) {
+      return { queue: Number(queue), draft: false, file: `rules/matrix_queue${queue}.json`, rule };
+    }
+  }
+  for (const [queue, doc] of byQueue(body?.provisional)) {
+    const rule = doc?.parameters?.[code];
+    if (rule) return { queue: Number(queue), draft: true, file: `rules/provisional/q${queue}.json`, rule };
+  }
+  return null;
+}
+
+/** JSON с ключами по порядку: отпечаток правила не зависит от порядка полей в файле. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const obj = value as Json;
+    return `{${Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(obj[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+/** Отпечаток правила: предложение из прогона принимается, пока правило то же, что прогоняли. */
+export function ruleDigest(rule: Json): string {
+  return createHash("sha256").update(canonical(rule)).digest("hex");
+}
+
+/** Указатель JSON (RFC 6901) на поле правила: «~» и «/» в имени экранируются. */
+function pointer(...parts: string[]): string {
+  return parts.map((p) => `/${p.replace(/~/g, "~0").replace(/\//g, "~1")}`).join("");
+}
+
+export interface PatchOp {
+  op: "test" | "replace" | "add";
+  path: string;
+  value: unknown;
+}
+
+/**
+ * Правка файла правил по RFC 6902: на каждое поле варианта — проверка прежнего значения и замена.
+ * Проверка не даёт наложить правку на правило, которое с тех пор поменялось: применение падает,
+ * а не затирает чужую правку. Поля, которого у правила нет, — добавление.
+ */
+export function proposalPatch(code: string, rule: Json, variant: Json): PatchOp[] {
+  const ops: PatchOp[] = [];
+  const set = (path: string, before: unknown, value: unknown) => {
+    if (before === undefined) {
+      ops.push({ op: "add", path, value });
+    } else {
+      ops.push({ op: "test", path, value: before });
+      ops.push({ op: "replace", path, value });
+    }
+  };
+  for (const [key, value] of Object.entries(variant ?? {})) {
+    if (key === "compare" && value && typeof value === "object" && !Array.isArray(value)) {
+      for (const [k, v] of Object.entries(value as Json)) set(pointer("parameters", code, "compare", k), rule?.compare?.[k], v);
+    } else {
+      set(pointer("parameters", code, key), rule?.[key], value);
+    }
+  }
+  return ops;
+}
+
+export interface ProposalTotals {
+  /** объектов в прогоне, из них посчитано и не прогнано */
+  objects: number;
+  done: number;
+  failed: number;
+  /** на скольких объектах вариант что-то меняет и сколько записей */
+  changed_objects: number;
+  changes: number;
+  added: number;
+  removed: number;
+  changed: number;
+  /** перемены записей, по которым инспектор уже решил */
+  disputed: number;
+}
+
+export interface ProposalObject {
+  process_id: string;
+  object_id: string | null;
+  object_name: string | null;
+  status: string;
+  error: string | null;
+  same: number;
+  changes: Json[];
+}
+
+export interface ProposalDiff {
+  totals: ProposalTotals;
+  /** объекты, где вариант что-то меняет, и те, где прогон не удался */
+  objects: ProposalObject[];
+}
+
+/** Разница по объектам из итогов прогона — снимком: прогон уберётся, предложение останется. */
+export function proposalDiff(
+  results: { process_id: unknown; object_id?: unknown; object_name?: unknown; status: unknown; error?: unknown; result?: Json | null }[],
+  total: number,
+): ProposalDiff {
+  const totals: ProposalTotals = {
+    objects: Math.max(total, results.length),
+    done: 0,
+    failed: 0,
+    changed_objects: 0,
+    changes: 0,
+    added: 0,
+    removed: 0,
+    changed: 0,
+    disputed: 0,
+  };
+  const objects: ProposalObject[] = [];
+  for (const r of results) {
+    const status = String(r.status);
+    const changes: Json[] = Array.isArray(r.result?.variant?.changes) ? r.result!.variant.changes : [];
+    if (status === "DONE") totals.done += 1;
+    if (status === "FAILED") totals.failed += 1;
+    if (changes.length) {
+      totals.changed_objects += 1;
+      totals.changes += changes.length;
+      for (const c of changes) {
+        if (c.change === "added") totals.added += 1;
+        else if (c.change === "removed") totals.removed += 1;
+        else totals.changed += 1;
+        if (c.decision) totals.disputed += 1;
+      }
+    }
+    if (changes.length || status === "FAILED") {
+      objects.push({
+        process_id: String(r.process_id),
+        object_id: r.object_id == null ? null : String(r.object_id),
+        object_name: r.object_name == null ? null : String(r.object_name),
+        status,
+        error: r.error == null ? null : String(r.error),
+        same: Number(r.result?.variant?.same ?? 0),
+        changes,
+      });
+    }
+  }
+  objects.sort((a, b) => String(a.object_name ?? a.object_id).localeCompare(String(b.object_name ?? b.object_id), "ru"));
+  return { totals, objects };
 }

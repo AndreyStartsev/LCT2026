@@ -326,6 +326,35 @@ create table if not exists rule_test_results (
     finished_at  timestamptz not null default now(),
     primary key (test_id, process_id)
 );
+-- Отпечаток правила на момент прогона (#224): предложение правки из прогона принимается, только пока
+-- правило то же — иначе разница по объектам говорила бы о другом правиле
+alter table rule_tests add column if not exists rule_digest text;
+
+-- Предложения правки правила из песочницы (#224, Р-164). Вариант с разницей по объектам хранится
+-- снимком: прогон песочницы убирается через две недели, а предложение остаётся со своей разницей.
+-- Правила прода предложение не меняет: разработчик переносит его в файл правил через PR и гейт
+-- качества (tools/rule_proposals.py) и отмечает статус — перенесено или отклонено с причиной.
+create table if not exists rule_proposals (
+    id             uuid primary key,
+    code           text not null,
+    queue          integer not null,
+    draft          boolean not null default false,  -- черновик правила (rules/provisional) или рабочее
+    file           text not null,                   -- файл правил, к которому прикладывается правка
+    variant        jsonb not null,                  -- поля правила поверх рабочего
+    rule           jsonb not null,                  -- правило на момент предложения
+    fingerprint    text not null,                   -- снимок правил, на котором предложено
+    test_id        uuid references rule_tests(id) on delete set null,
+    diff           jsonb not null,                  -- разница по объектам: итоги и перемены
+    comment        text,
+    status         text not null default 'NEW',     -- NEW, APPLIED, REJECTED
+    status_reason  text,
+    status_by      text,
+    status_at      timestamptz,
+    created_by     text not null,
+    created_at     timestamptz not null default now()
+);
+create index if not exists rule_proposals_code_idx on rule_proposals(code, created_at desc);
+create unique index if not exists rule_proposals_test_idx on rule_proposals(test_id) where test_id is not null;
 
 -- Удаление процесса уносит его записи: пакеты загрузки, файлы, протоколы, находки и
 -- очередь передачи. Без этого убрать проверочный объект со стенда можно было только

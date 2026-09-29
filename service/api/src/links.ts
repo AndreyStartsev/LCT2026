@@ -7,6 +7,7 @@
 // документов, 3 949 связей). Конвейер не трогаем: индекс помещений кладёт в отчёт
 // протокола воркер, фильтр ложных связей — здесь.
 import { findingStatus } from "./report.js";
+import { sidesOf } from "./sides.js";
 
 type Json = Record<string, any>;
 export type Stage = "PD" | "RD" | "ID";
@@ -181,7 +182,8 @@ export function findingContext(row: Json, files: Json[], findings: Json[], rooms
     if (!slot.quote && e.quote) slot.quote = String(e.quote).slice(0, 240);
     perFile.set(key, slot);
   }
-  const values: Record<Stage, unknown> = { PD: row.pd_value, RD: row.rd_value, ID: row.body?.id_value };
+  // у проверки внутри листа ИД допуск и отклонение оба с него: у ПД и РД значения нет
+  const values: Record<Stage, unknown> = sidesOf(row).by_stage;
   const stages = STAGES.map((stage) => ({
     stage,
     value: values[stage] === undefined || values[stage] === null ? null : String(values[stage]),

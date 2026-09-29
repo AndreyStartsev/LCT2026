@@ -8,7 +8,7 @@ import { pool } from "../db.js";
 import { ApiError } from "../errors.js";
 import { iso } from "../process.js";
 import { publishRuleTest } from "../queue.js";
-import { buildRulesView, ENGINES, NUMERIC, RULE_STATES, variantProblems, type RulesView } from "../rules.js";
+import { buildRulesView, ENGINES, NUMERIC, RULE_STATES, ruleDigest, ruleSource, variantProblems, type RulesView } from "../rules.js";
 import { errorResponses } from "../schemas.js";
 
 const text = { type: "string", nullable: true };
@@ -205,6 +205,38 @@ const ESTIMATE = {
   },
 };
 
+// Прогоны правил для перечня (Р-165): у кого прогон идёт или был недавно. Идущим прогон считается не дольше
+// ACTIVE_HOURS: строка прогона, брошенная упавшим воркером, не должна вечно светиться «идёт».
+const ACTIVE_HOURS = 6;
+
+const ACTIVITY = {
+  type: "object",
+  required: ["rules"],
+  properties: {
+    rules: {
+      type: "array",
+      description: "правила, у которых есть прогоны за две недели: прогоны старше убираются",
+      items: {
+        type: "object",
+        required: ["code", "runs", "active", "last_status", "last_variant", "last_at"],
+        properties: {
+          code: { type: "string" },
+          runs: { ...count, description: "прогонов правила" },
+          active: { ...count, description: "сколько сейчас в очереди или идёт" },
+          last_status: { type: "string", enum: [...TEST_STATUS], description: "как кончился последний прогон" },
+          last_variant: { type: "boolean", description: "последний прогон — вариант из песочницы, а не трасса" },
+          last_by: text,
+          last_at: {
+            type: "string",
+            format: "date-time",
+            description: "когда последний прогон закончился, а если не закончился — когда начался или поставлен",
+          },
+        },
+      },
+    },
+  },
+};
+
 /** Во сколько раз прогоны шли дольше расчёта: по страницам, без времени запуска; 0,5…20. */
 export function runSpeed(runs: { elapsed_s: unknown; pages: unknown; variant: unknown }[]): { speed: number; recent: number } {
   const used = runs
@@ -217,7 +249,8 @@ export function runSpeed(runs: { elapsed_s: unknown; pages: unknown; variant: un
   return { speed: Math.round(Math.min(20, Math.max(0.5, took / model)) * 10) / 10, recent: used.length };
 }
 
-async function latestView(): Promise<RulesView> {
+/** Последний снимок правил воркера: файлы правил как есть (Р-134). */
+export async function latestSnapshot(): Promise<{ fingerprint: string; body: Record<string, any>; published_at: string }> {
   const { rows } = await pool.query(
     "select fingerprint, body, published_at from rule_snapshots order by published_at desc limit 1",
   );
@@ -225,7 +258,15 @@ async function latestView(): Promise<RulesView> {
   if (!row) {
     throw new ApiError(404, "RULES_NOT_PUBLISHED", "Правила ещё не получены: сервис обработки передаёт их при запуске");
   }
-  return buildRulesView(row.body, { fingerprint: row.fingerprint, published_at: iso(row.published_at)! });
+  return { fingerprint: row.fingerprint, body: row.body, published_at: iso(row.published_at)! };
+}
+
+export function snapshotView(snapshot: { fingerprint: string; body: Record<string, any>; published_at: string }): RulesView {
+  return buildRulesView(snapshot.body, { fingerprint: snapshot.fingerprint, published_at: snapshot.published_at });
+}
+
+async function latestView(): Promise<RulesView> {
+  return snapshotView(await latestSnapshot());
 }
 
 function summary(row: Record<string, any>) {
@@ -299,7 +340,8 @@ export async function rulesRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const body = request.body as { code: string; variant?: Record<string, unknown> | null; process_ids?: string[]; trace?: boolean };
-      const view = await latestView();
+      const snapshot = await latestSnapshot();
+      const view = snapshotView(snapshot);
       const param = view.parameters.find((p) => p.code === body.code);
       const logic = param?.rule ?? param?.draft ?? null;
       if (!param || !logic) {
@@ -330,10 +372,13 @@ export async function rulesRoutes(app: FastifyInstance): Promise<void> {
       const variant = body.variant && Object.keys(body.variant).length ? body.variant : null;
       const trace = body.trace ?? processIds.length === 1;
       const id = randomUUID();
+      // отпечаток правила на момент прогона: из этого прогона предложение правки (#224) примется, пока правило то же
+      const source = ruleSource(snapshot.body, body.code);
       const inserted = await pool.query(
-        `insert into rule_tests (id, code, variant, trace, process_ids, total, created_by)
-         values ($1, $2, $3, $4, $5, $6, $7) returning *`,
-        [id, body.code, variant, trace, JSON.stringify(processIds), processIds.length, request.user.sub],
+        `insert into rule_tests (id, code, variant, trace, process_ids, total, created_by, rule_digest)
+         values ($1, $2, $3, $4, $5, $6, $7, $8) returning *`,
+        [id, body.code, variant, trace, JSON.stringify(processIds), processIds.length, request.user.sub,
+         source ? ruleDigest(source.rule) : null],
       );
       try {
         await publishRuleTest(id, request.user.sub, request.id);
@@ -377,6 +422,46 @@ export async function rulesRoutes(app: FastifyInstance): Promise<void> {
         [code],
       );
       return { tests: rows.map(summary) };
+    },
+  );
+
+  app.get(
+    "/api/v1/rules/tests/activity",
+    {
+      preHandler: [authenticate, requireRole("expert")],
+      schema: {
+        tags: ["rules"],
+        summary: "Прогоны правил: какие идут и когда был последний (эксперт)",
+        description:
+          "По каждому правилу с прогонами: сколько их, сколько сейчас в очереди или идёт, как и когда кончился " +
+          "последний и кто его поставил. Перечень правил отмечает по ним правила, где прогон идёт или был недавно.",
+        security: bearer,
+        response: { 200: ACTIVITY, ...errorResponses },
+      },
+    },
+    async () => {
+      const { rows } = await pool.query(
+        `select l.code, l.status, l.variant is not null as variant, l.created_by,
+                coalesce(l.finished_at, l.started_at, l.created_at) as at, c.runs, c.active
+           from (select distinct on (code) code, status, variant, created_by, created_at, started_at, finished_at
+                   from rule_tests order by code, created_at desc) l
+           join (select code, count(*)::int as runs,
+                        count(*) filter (where status in ('QUEUED', 'RUNNING')
+                                           and created_at > now() - interval '${ACTIVE_HOURS} hours')::int as active
+                   from rule_tests group by code) c using (code)
+          order by l.code`,
+      );
+      return {
+        rules: rows.map((r) => ({
+          code: String(r.code),
+          runs: Number(r.runs),
+          active: Number(r.active),
+          last_status: r.status,
+          last_variant: !!r.variant,
+          last_by: r.created_by ?? null,
+          last_at: iso(r.at)!,
+        })),
+      };
     },
   );
 

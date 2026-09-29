@@ -9,12 +9,13 @@ import {
   LABEL,
   LOCATION_TYPE,
   REASONS,
+  SHEET_TOLERANCE_SIDES,
   STAGE,
   VERDICT,
   when,
   ruleCodeHint,
 } from "../labels";
-import { isCandidate, isHypothesis } from "../protocol";
+import { isCandidate, isHypothesis, isSheetTolerance, usesStage } from "../protocol";
 import FindingContextView from "./FindingContextView";
 import { ConfidenceMark, SpecialistMark } from "./Marks";
 import Tip from "./Tip";
@@ -93,12 +94,15 @@ function Side({
   recognized,
   source,
   label,
+  hint,
   onPick,
 }: {
   stage: "PD" | "RD" | "ID";
   onPick?: (e: Evidence) => void;
   /** подпись стороны вместо стадии: у гипотезы сравнения редакций — «изм. 1», «изм. 3» (#81) */
   label?: string;
+  /** подсказка к подписи стороны: откуда сторона, если это не просто стадия */
+  hint?: string;
   value: string | null;
   evidence: Evidence[];
   revisions: RevisionHistory[];
@@ -109,10 +113,11 @@ function Side({
 }) {
   const first = evidence[0];
   const binding = source?.binding ? BINDING_NOTE[source.binding] : null;
+  const head = <span className={hint ? "stage with-tip" : "stage"}>{label ?? STAGE[stage]}</span>;
   return (
     <div className="side">
       <div className="side-head">
-        <span className="stage">{label ?? STAGE[stage]}</span>
+        {hint ? <Tip text={hint}>{head}</Tip> : head}
         <span className="side-doc" title={first?.document ?? undefined}>
           {first?.document_code ?? (first ? first.file_id : STAGE_EMPTY[stage])}
         </span>
@@ -187,6 +192,16 @@ export function CardBody({ finding, onPickSource }: { finding: Finding; onPickSo
   const revisionPair = finding.parameter_code === "FREE-REV-UNMARKED";
   const newest = revisionPair ? finding.evidence.filter((e) => e.revision === finding.evidence[0]?.revision) : [];
   const older = revisionPair ? finding.evidence.filter((e) => e.revision !== finding.evidence[0]?.revision) : [];
+  // Сверка исполнительной схемы с допусками того же листа: стороны — допуск и отклонение с листа ИД.
+  // Прежде допуск стоял под «ПД» с пустой страницей проекта, хотя проект в проверке не участвует.
+  const sheetTolerance = isSheetTolerance(finding);
+  // Стадии, которых проверка свободного поиска не касается, не показываются рамкой «не найдено»;
+  // запись совсем без значений и страниц показывает обе, как раньше
+  const bare = !usesStage(finding, "PD") && !usesStage(finding, "RD") && !withId;
+  const showPd = bare || usesStage(finding, "PD");
+  const showRd = bare || usesStage(finding, "RD");
+  const count = [showPd, showRd, withId].filter(Boolean).length;
+  const sidesClass = count === 3 ? "sides sides-three" : count === 1 ? "sides sides-one" : "sides";
   return (
     <>
       <div className="card-id">
@@ -243,26 +258,54 @@ export function CardBody({ finding, onPickSource }: { finding: Finding; onPickSo
             revisions={[]}
           />
         </div>
+      ) : sheetTolerance ? (
+        <div className="sides">
+          <Side
+            onPick={onPickSource}
+            stage="ID"
+            label={`${STAGE.ID} · допуск`}
+            hint={SHEET_TOLERANCE_SIDES}
+            value={finding.pd_value}
+            // цитата доказательства — строка отклонений; у стороны допуска её не показываем
+            evidence={idEvidence.map((e) => ({ ...e, quote: undefined }))}
+            revisions={[]}
+            recognized={finding.value_read_by?.id === "RECOGNIZED"}
+          />
+          <Side
+            onPick={onPickSource}
+            stage="ID"
+            label={`${STAGE.ID} · отклонение`}
+            value={finding.id_value ?? null}
+            evidence={idEvidence}
+            revisions={[]}
+            recognized={finding.value_read_by?.id === "RECOGNIZED"}
+            source={finding.sources?.id}
+          />
+        </div>
       ) : (
-      <div className={withId ? "sides sides-three" : "sides"}>
-        <Side
-          onPick={onPickSource}
-          stage="PD"
-          value={finding.pd_value}
-          evidence={pd}
-          revisions={finding.revisions?.pd ?? []}
-          recognized={finding.value_read_by?.pd === "RECOGNIZED"}
-          source={finding.sources?.pd}
-        />
-        <Side
-          onPick={onPickSource}
-          stage="RD"
-          value={finding.rd_value}
-          evidence={rd}
-          revisions={finding.revisions?.rd ?? []}
-          recognized={finding.value_read_by?.rd === "RECOGNIZED"}
-          source={finding.sources?.rd}
-        />
+      <div className={sidesClass}>
+        {showPd && (
+          <Side
+            onPick={onPickSource}
+            stage="PD"
+            value={finding.pd_value}
+            evidence={pd}
+            revisions={finding.revisions?.pd ?? []}
+            recognized={finding.value_read_by?.pd === "RECOGNIZED"}
+            source={finding.sources?.pd}
+          />
+        )}
+        {showRd && (
+          <Side
+            onPick={onPickSource}
+            stage="RD"
+            value={finding.rd_value}
+            evidence={rd}
+            revisions={finding.revisions?.rd ?? []}
+            recognized={finding.value_read_by?.rd === "RECOGNIZED"}
+            source={finding.sources?.rd}
+          />
+        )}
         {withId && (
           <Side
             onPick={onPickSource}

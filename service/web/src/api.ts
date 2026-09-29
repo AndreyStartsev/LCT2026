@@ -776,6 +776,13 @@ export const api = {
   ruleTest: (id: string) => request<RuleTest>("GET", `/api/v1/rules/tests/${id}`),
   /** Последние прогоны правила — чтобы вернуться к своему, уйдя со страницы. */
   ruleTests: (code: string) => request<{ tests: RuleTest[] }>("GET", `/api/v1/rules/tests?code=${encodeURIComponent(code)}`),
+  /** Предложения правки правил из песочницы (#224): эксперт пишет, разработчик переносит и отмечает статус. */
+  ruleProposals: (code?: string) =>
+    request<{ proposals: RuleProposal[] }>("GET", `/api/v1/rules/proposals${code ? `?code=${encodeURIComponent(code)}` : ""}`),
+  ruleProposal: (id: string) => request<RuleProposal>("GET", `/api/v1/rules/proposals/${id}`),
+  ruleProposalCreate: (body: { test_id: string; comment?: string }) => request<RuleProposal>("POST", "/api/v1/rules/proposals", body),
+  /** Прогоны по правилам: какие идут и когда был последний — для пометки в перечне правил. */
+  ruleActivity: () => request<{ rules: RuleActivity[] }>("GET", "/api/v1/rules/tests/activity"),
   /** Примерное время прогона по объектам: по числу страниц и скорости последних прогонов стенда. */
   ruleTestEstimate: () =>
     request<{ speed: number; recent: number; processes: RuleEstimate[] }>("GET", "/api/v1/rules/tests/estimate"),
@@ -935,6 +942,64 @@ export interface TestResult {
   base: { findings: TestFinding[] };
   trace?: TestTrace;
   variant?: { findings: TestFinding[]; changes: TestChange[]; same: number; trace?: TestTrace };
+}
+
+/** Прогоны правила: сколько их, сколько идёт, как и когда кончился последний и кто его поставил. */
+export interface RuleActivity {
+  code: string;
+  runs: number;
+  active: number;
+  last_status: RuleTest["status"];
+  last_variant: boolean;
+  last_by: string | null;
+  last_at: string;
+}
+
+export type ProposalStatus = "NEW" | "APPLIED" | "REJECTED";
+
+/** Разница варианта по объектам — итогами. */
+export interface ProposalTotals {
+  objects: number;
+  done: number;
+  failed: number;
+  changed_objects: number;
+  changes: number;
+  added: number;
+  removed: number;
+  changed: number;
+  /** перемены записей, по которым инспектор уже решил */
+  disputed: number;
+}
+
+/** Предложение правки правила из песочницы: вариант, разница по объектам снимком и статус. */
+export interface RuleProposal {
+  id: string;
+  code: string;
+  queue: number;
+  draft: boolean;
+  file: string;
+  variant: Record<string, unknown>;
+  comment: string | null;
+  status: ProposalStatus;
+  status_reason: string | null;
+  status_by: string | null;
+  status_at: string | null;
+  created_by: string;
+  created_at: string;
+  test_id: string | null;
+  fingerprint: string;
+  totals: ProposalTotals;
+  /** в карточке предложения: правило на момент предложения и перемены по объектам */
+  rule?: Record<string, unknown>;
+  objects?: {
+    process_id: string;
+    object_id: string | null;
+    object_name: string | null;
+    status: string;
+    error: string | null;
+    same: number;
+    changes: TestChange[];
+  }[];
 }
 
 /** Примерное время прогона на последней проверке объекта, секунд. */
