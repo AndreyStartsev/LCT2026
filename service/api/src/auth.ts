@@ -48,10 +48,11 @@ export async function registerAuth(app: FastifyInstance): Promise<void> {
     async (request) => {
       const { login, password } = request.body as { login: string; password: string };
       const user = config.users.find((u) => u.login === login);
-      const ok =
-        user !== undefined &&
-        user.password.length === password.length &&
-        timingSafeEqual(Buffer.from(user.password), Buffer.from(password));
+      // Длины сравниваются в байтах: у пароля в другой раскладке столько же символов, но другое число байтов
+      // UTF-8, а на буферах разной длины timingSafeEqual бросает исключение (Р-160)
+      const expected = Buffer.from(user?.password ?? "");
+      const given = Buffer.from(password);
+      const ok = user !== undefined && expected.length === given.length && timingSafeEqual(expected, given);
       if (!ok || !user) {
         throw new ApiError(401, "INVALID_CREDENTIALS", "Неверный логин или пароль");
       }

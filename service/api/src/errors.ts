@@ -19,6 +19,18 @@ export function installErrorHandler(app: FastifyInstance): void {
         error: { code: error.code, message: error.message, details: error.details },
       });
     }
+    const status = (error as FastifyError).statusCode ?? 500;
+    if (status >= 500) {
+      // Код исходной ошибки (код Node, SQLSTATE PostgreSQL, ECONNREFUSED) — только в журнал:
+      // клиенту он ничего не говорит, а устройство сервиса выдаёт (Р-162).
+      // Сюда же идёт ответ не по своей схеме: @fastify/response-validation ставит на свою ошибку validation,
+      // как у ошибки запроса, но со статусом 500 — ошибка в коде сервиса, а не в запросе (Р-163)
+      request.log.error({ err: error }, "необработанная ошибка");
+      return reply.status(status).send({
+        error: { code: "INTERNAL_ERROR", message: "Внутренняя ошибка сервиса", details: null },
+      });
+    }
+    // запрос не по схеме: у Fastify это 400 с частью запроса — body, querystring, params, headers
     if ((error as FastifyError).validation) {
       return reply.status(400).send({
         error: {
@@ -28,16 +40,9 @@ export function installErrorHandler(app: FastifyInstance): void {
         },
       });
     }
-    const status = (error as FastifyError).statusCode ?? 500;
-    if (status >= 500) {
-      request.log.error({ err: error }, "необработанная ошибка");
-    }
+    // 4xx самого Fastify и плагинов, например 413 FST_ERR_CTP_BODY_TOO_LARGE, — со своим кодом
     return reply.status(status).send({
-      error: {
-        code: (error as FastifyError).code ?? "INTERNAL_ERROR",
-        message: status >= 500 ? "Внутренняя ошибка сервиса" : error.message,
-        details: null,
-      },
+      error: { code: (error as FastifyError).code ?? "INTERNAL_ERROR", message: error.message, details: null },
     });
   });
 }

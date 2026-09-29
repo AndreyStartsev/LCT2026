@@ -644,6 +644,8 @@ def extract(rule, text, classes=None, doc=None, page_no=None, prev_text=None):
         # траншей — обвязочным поясом и распорками котлована, плиты канала — толщиной перекрытий
         if elements.network_volume((doc or {}).get("relative_path")):
             return []
+        # раздел записки о фундаменте башенного крана — не о здании: вырезается до разбора страницы (Р-157)
+        text = elements.without_crane_sections(tep.flatten(text))
     if rule.get("kind") == "element_class":
         flat = tep.flatten(text)
         as_built = (doc or {}).get("stage") == "ID"
@@ -1358,6 +1360,16 @@ def _load_rule_cache(path, key):
     return {"key": key, "pages": {}, "rules": {}}
 
 
+def _without_element_kinds(per_page, active):
+    """Кандидаты документа без правил по элементам (`ELEMENT_KINDS`)."""
+    out = []
+    for page_no, source, by_code in per_page:
+        kept = {code: cands for code, cands in by_code.items() if active[code].get("kind") not in ELEMENT_KINDS}
+        if kept:
+            out.append((page_no, source, kept))
+    return out
+
+
 def document_candidates(doc, root, active, rules, digest=None, use_cache=True, fresh=None):
     """Кандидаты документа: из кеша, если документ и правило те же. Возвращает (страницы, прочитано).
 
@@ -1373,11 +1385,17 @@ def document_candidates(doc, root, active, rules, digest=None, use_cache=True, f
     `PIPELINE_FRESH` и `PIPELINE_FRESH_RULES` (`fresh_rules`), один раз на документ за прогон.
     `use_cache=False` — ни читать, ни писать кеш: так мерится разбор сам по себе.
     `digest` не используется — оставлен для прежних вызовов.
+
+    Том о фундаменте башенного крана — «Ростверк башенного крана» на титуле (`elements.crane_volume`) — правила по
+    элементам не читают (Р-157). Отбор идёт после кеша, как выбор раздела-источника: он решает, из какого тома
+    брать значение, а не как читать страницу, и кеш кандидатов других правил от него не стареет.
     """
     pages = list(page_texts_src(doc, root))
     sha = doc.get("sha256")
+    crane = elements.crane_volume(text for page_no, text, _src in pages if page_no <= elements.TITLE_PAGES)
     if not use_cache or not sha:
-        return _extract_document(doc, pages, active, rules), len(pages)
+        got = _extract_document(doc, pages, active, rules)
+        return (_without_element_kinds(got, active) if crane else got), len(pages)
     fresh = fresh_rules() if fresh is None else set(fresh)
     path = _rule_cache_path(sha)
     key = {"relative_path": doc.get("relative_path"), "stage": doc.get("stage"), "text": _text_digest(pages)}
@@ -1423,7 +1441,7 @@ def document_candidates(doc, root, active, rules, digest=None, use_cache=True, f
         for page_no, cands in (got or {}).items():
             by_page[page_no][code] = cands
     out = [(page_no, store["pages"][str(page_no)], by_page[page_no]) for page_no in sorted(by_page)]
-    return out, len(pages)
+    return (_without_element_kinds(out, active) if crane else out), len(pages)
 
 
 def collect(object_id, rules=None, progress=None, only_files=None, use_cache=True):
@@ -1959,6 +1977,12 @@ def reconcile(cands, density):
     участвуют (`recognized_doubts`, #41). Если победило значение, прочитанное только
     машиной, а текстовый слой других страниц даёт иное, — это расхождение записывается
     полем `layer_conflict`: инспектор подтверждает, какое верно.
+
+    Цитата у каждой страницы доказательства своя (`quotes`, Р-159): кандидат этой страницы
+    с выбранным значением, при нескольких — с цитатой стороны (`snippet`, самая плотная страница),
+    если та же фраза есть и здесь, иначе первый по тексту. Раньше цитата самой плотной страницы
+    ставилась на все страницы стороны, и у остальных она бывала чужой — то же, что Р-158 исправил
+    у наборов значений по элементам (`reconcile_set`).
     """
     if not cands:
         return None
@@ -1976,6 +2000,11 @@ def reconcile(cands, density):
     scored.sort(key=lambda s: (-s[0], -s[1]))
     weight, n_pages, key, items = scored[0]
     best = max(items, key=lambda c: density.get((c["file_id"], c["page"]), 0))
+    # цитата страницы: при равных — цитата стороны, если та же фраза есть и здесь (общие указания
+    # повторяются в томах, и цитата, которая уже была своей, не меняется), иначе первый по тексту
+    quotes = {}
+    for c in sorted(items, key=lambda c: c["snippet"] != best["snippet"]):
+        quotes.setdefault((c["file_id"], c["page"]), c["snippet"])
     machine_only = all(c.get("text_source") == "RECOGNIZED" for c in items)
     layer_other = [s[3][0]["raw"] for s in scored[1:] if any(c.get("text_source") != "RECOGNIZED" for c in s[3])]
     return {
@@ -1986,6 +2015,7 @@ def reconcile(cands, density):
         "column_choice": best.get("column_choice"),
         "snippet": best["snippet"],
         "pages": sorted({(c["file_id"], c["page"]) for c in items}),
+        "quotes": quotes,
         "support": n_pages,
         "weight": weight,
         # порядок равных по весу и страницам — по значению: иначе он зависел от того, взяты кандидаты
@@ -2015,6 +2045,8 @@ def union_presence(side, cands):
         return side
     # страницы — все, где системы названы: доказательство наличия живёт не на одном листе
     pages = sorted({(c["file_id"], c["page"]) for c in cands})
+    # цитата — сводка названий на всех страницах, как и до Р-159: цитаты страниц голосования здесь ни при чём
+    side = {k: v for k, v in side.items() if k != "quotes"}
     return dict(side, columns=names, value=float(len(names)), pages=pages, support=len(pages),
                 raw="PRESENT", snippet="названы: " + ", ".join(names))
 
@@ -2301,7 +2333,10 @@ def id_review(rule, pd, rd, built, label, result, detail, judge, **kwargs):
 def lower_evidence(rule, pd, rd, loc, label, evidence):
     """Страницы меньшей толщины плиты, которую решение не сочло понижением (#136): где она названа
     в рабочей стадии и где та же толщина стоит в проекте, хотя бы на листе чертежа. Иначе довод
-    «в проекте такая толщина тоже есть» не на что проверить."""
+    «в проекте такая толщина тоже есть» не на что проверить.
+
+    Цитата — фрагмент самой страницы с этой толщиной (Р-158), а не подпись «толщина 200 мм»: по подписи
+    не видно, что на странице названо — плита перекрытия или, как у Речникова на листах ПД, плита покрытия."""
     if label != "NO_VIOLATION" or not (pd and rd) or rule.get("kind") != "element_thickness":
         return
     if not str(loc).startswith("Плиты перекрытия"):
@@ -2313,14 +2348,20 @@ def lower_evidence(rule, pd, rd, loc, label, evidence):
                 if (stage, fid, page) not in have:
                     have.add((stage, fid, page))
                     evidence.append({"stage": stage, "file_id": fid, "pdf_page_number": page,
-                                     "quote": f"толщина {_set_raw(rule, [v])}", "localization": "PAGE_LEVEL"})
+                                     "quote": side["every_quotes"][(v, fid, page)], "localization": "PAGE_LEVEL"})
 
 
 def id_evidence(built, evidence):
-    """Страницы исполнительной документации — в доказательства записи."""
+    """Страницы исполнительной документации — в доказательства записи.
+
+    Цитата у каждой страницы своя, если сторона их знает (`quotes`): у набора значений элемента
+    (`reconcile_set`) — с Р-158, у значения одного показателя (`reconcile`) — с Р-159.
+    У стороны без них одна цитата на все страницы.
+    """
+    quotes = (built or {}).get("quotes") or {}
     for fid, page in (built or {}).get("pages", [])[:3]:
         evidence.append({"stage": "ID", "file_id": fid, "pdf_page_number": page,
-                         "quote": built["snippet"], "localization": "PAGE_LEVEL"})
+                         "quote": quotes.get((fid, page), built["snippet"]), "localization": "PAGE_LEVEL"})
 
 
 # ---------- значения по элементам (вторая очередь) ----------
@@ -2356,6 +2397,12 @@ def reconcile_set(rule, cands, by_registry=False):
     правило находило 14 кандидатов класса бетона и не брало ни одного (#52). Теперь
     она берётся, когда привязки крепче в стадии нет вовсе, и остаётся видна в находке
     полем `binding`: решение по ней принимается так же, но источник назван.
+
+    Цитата у каждой страницы доказательства своя (`quotes`, Р-158): кандидат этой страницы
+    со значением из множества, при нескольких — с самой крепкой привязкой, при равной — с цитатой
+    первой страницы, если она есть и здесь, иначе первый по тексту. Раньше на все страницы стороны
+    ставилась цитата первой, и у второй и третьей она бывала чужой: у ростверка Полярной 16 на листах
+    с плитой 1200 мм стояло «толщиной 900 мм».
     """
     usable = [c for c in cands if c["binding"] != "SHEET"]
     if not usable:
@@ -2380,6 +2427,12 @@ def reconcile_set(rule, cands, by_registry=False):
         if (fid, page) not in pages:
             pages.append((fid, page))
     first = next(c for c in chosen if (c["file_id"], c["page"]) == pages[0])
+    # при равной привязке — цитата первой страницы, если та же фраза есть и здесь: общие указания повторяются
+    # в томах, и цитата, которая уже была своей, не меняется. У первой страницы цитата остаётся `first`
+    quotes = {}
+    for c in sorted(cands, key=lambda c: (BINDING_RANK[c["binding"]], c["snippet"] != first["snippet"])):
+        if c["value"] in values:
+            quotes.setdefault((c["file_id"], c["page"]), c["snippet"])
     # множество собрано только из распознанных упоминаний, а текстовый слой той же стадии
     # (другие страницы, слабее привязанные) называет иное значение — инспектор решает, какое верно
     machine_only = all(c.get("text_source") == "RECOGNIZED" for c in chosen)
@@ -2392,15 +2445,19 @@ def reconcile_set(rule, cands, by_registry=False):
     # толщиной 200 мм в ПД есть только подписью «t=200» на листе КР2-кор3 (#136)
     every = sorted({c["value"] for c in cands})
     every_pages = collections.defaultdict(list)
+    # цитата страницы — первый кандидат с этим значением в порядке обхода, то есть с самой крепкой привязкой (Р-158)
+    every_quotes = {}
     for c in sorted(cands, key=lambda c: (BINDING_RANK[c["binding"]], c["file_id"], c["page"])):
         if (c["file_id"], c["page"]) not in every_pages[c["value"]] and len(every_pages[c["value"]]) < 2:
             every_pages[c["value"]].append((c["file_id"], c["page"]))
+            every_quotes[(c["value"], c["file_id"], c["page"])] = c["snippet"]
     return {
         "value": values,
         "raw": _set_raw(rule, values),
         "columns": [_set_raw(rule, [v]) for v in values],
         "snippet": first["snippet"],
         "pages": pages,
+        "quotes": quotes,
         "support": len(pages),
         "binding": next(k for k, v in BINDING_RANK.items() if v == best),
         "alternatives": [{"value": _set_raw(rule, [v])} for v in sorted({c["value"] for c in usable} - set(values))],
@@ -2411,6 +2468,7 @@ def reconcile_set(rule, cands, by_registry=False):
         **({"enumerated": enumerated} if enumerated else {}),
         "every": every,
         "every_pages": dict(every_pages),
+        "every_quotes": every_quotes,
     }
 
 
@@ -2567,8 +2625,9 @@ def element_findings(object_id, code, rule, found, catalog):
         for side, stage in ((pd, "PD"), (rd, "RD")):
             if side:
                 for fid, page in side["pages"][:3]:
+                    # цитата — со своей страницы (Р-158), а не цитата первой страницы стороны
                     evidence.append({"stage": stage, "file_id": fid, "pdf_page_number": page,
-                                     "quote": side["snippet"], "localization": "PAGE_LEVEL"})
+                                     "quote": side["quotes"][(fid, page)], "localization": "PAGE_LEVEL"})
         lower_evidence(rule, pd, rd, loc, label, evidence)
         id_evidence(built, evidence)
         out.append({
@@ -2635,7 +2694,8 @@ def _plural(value, forms):
 # правила, которые сверяют стадии по помещениям и установкам: pipeline/room_compare.py, задача #37
 ROOM_KINDS = {"room_systems", "vent_units"}
 # правила по элементам здания: класс бетона, марка стали, класс арматуры, толщина плит, объём бетона
-# (KR-055…KR-059, KR-067). Том наружных инженерных сетей они не читают (`elements.network_volume`)
+# (KR-055…KR-059, KR-067). Том наружных инженерных сетей они не читают (`elements.network_volume`),
+# фундамент башенного крана — ни раздел записки, ни том (Р-157)
 ELEMENT_KINDS = {"element_class", "element_steel_grade", "element_rebar_class", "element_thickness",
                  "material_takeoff"}
 KEYED_KINDS = {"switchboard_breakers", "switchboard_cables", "riser_diameters", "booster_pumps", "layer_stack",
@@ -4396,9 +4456,11 @@ def build_findings(object_id, rules=None, progress=None, collected=None):
         evidence = []
         for side, stage in ((pd, "PD"), (rd, "RD")):
             if side:
+                # цитата — со своей страницы (Р-159); у наличия систем — сводка названий на всех страницах
+                quotes = side.get("quotes") or {}
                 for fid, page in side["pages"][:page_limit]:
                     evidence.append({"stage": stage, "file_id": fid, "pdf_page_number": page,
-                                     "quote": side["snippet"], "localization": "PAGE_LEVEL"})
+                                     "quote": quotes.get((fid, page), side["snippet"]), "localization": "PAGE_LEVEL"})
         id_evidence(built, evidence)
         findings.append({
             "finding_id": f"{object_id}::{code}",

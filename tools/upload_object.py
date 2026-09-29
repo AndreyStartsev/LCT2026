@@ -22,6 +22,7 @@ import argparse
 import json
 import mimetypes
 import os
+import re
 import sys
 import time
 import unicodedata
@@ -29,7 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from http.client import HTTPConnection, HTTPSConnection
+from http.client import HTTPConnection, HTTPException, HTTPSConnection
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -127,6 +128,8 @@ def multipart(fields, files, boundary):
 
 
 def upload(api, token, fields, files, path=UPLOAD_PATH):
+    """Пакет потоком в маршрут загрузки: (HTTP-статус, тело ответа). Статус None — сервер
+    закрыл соединение до конца загрузки и не ответил."""
     boundary = uuid.uuid4().hex
     parsed = urllib.parse.urlparse(api)
     conn_cls = HTTPSConnection if parsed.scheme == "https" else HTTPConnection
@@ -136,13 +139,47 @@ def upload(api, token, fields, files, path=UPLOAD_PATH):
     conn.putheader("content-type", f"multipart/form-data; boundary={boundary}")
     conn.putheader("transfer-encoding", "chunked")
     conn.endheaders()
-    for chunk in multipart(fields, files, boundary):
-        conn.send(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
-    conn.send(b"0\r\n\r\n")
-    response = conn.getresponse()
-    body = json.loads(response.read() or b"null")
-    conn.close()
-    return response.status, body
+    interrupted = False
+    try:
+        for chunk in multipart(fields, files, boundary):
+            conn.send(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
+        conn.send(b"0\r\n\r\n")
+    except (BrokenPipeError, ConnectionResetError):
+        # Дозагрузку в занятый процесс сервис отклоняет по полям, до файлов (409 PROCESS_BUSY, пока идёт
+        # разбор): отвечает, не дочитав тело, и закрывает соединение. Передача обрывается, а ответ
+        # уже пришёл — читаем его
+        interrupted = True
+    try:
+        response = conn.getresponse()
+        raw = response.read()
+    except (HTTPException, OSError):
+        if not interrupted:
+            raise
+        return None, None
+    finally:
+        conn.close()
+    try:
+        return response.status, json.loads(raw or b"null")
+    except ValueError:
+        # ответил не сервис, а прокси перед ним (страница 502 и т. п.): её текст одной строкой
+        text = re.sub(r"<[^>]*>", " ", raw.decode("utf-8", "replace"))
+        return response.status, " ".join(text.split())[:300]
+
+
+def upload_failure(status, body, process_id=None):
+    """Почему пакет не принят, для человека: HTTP-статус, код и сообщение сервиса."""
+    if status is None:
+        return "сервер закрыл соединение до конца загрузки"
+    error = body.get("error") if isinstance(body, dict) else None
+    if not isinstance(error, dict):
+        return f"HTTP {status}: {body}"
+    text = f"HTTP {status} {error.get('code')}: {error.get('message')}"
+    if error.get("code") == "PROCESS_BUSY":
+        process_id = (error.get("details") or {}).get("process_id") or process_id
+        text += "\nповторите дозагрузку после окончания разбора"
+        if process_id:
+            text += f" процесса {process_id} (дождаться его: --process-id {process_id} без --folder)"
+    return text
 
 
 def validate(protocol):
@@ -219,7 +256,7 @@ def main():
         t0 = time.monotonic()
         status, body = upload(args.api, token, fields, files, route)
         if status != 202:
-            sys.exit(f"пакет {i}: HTTP {status}: {body}")
+            sys.exit(f"пакет {i} из {len(plan)}: {upload_failure(status, body, process_id)}")
         process_id = body["process_id"]
         rejected += body["rejected"]
         size = sum(s for *_, s in files)
