@@ -121,6 +121,44 @@ MODEL_READY = MAIN_READY or FALLBACK_READY
 USE_MODEL = _flag("PIPELINE_MODEL", READING_MODE == "model") and MODEL_READY
 
 
+def is_external(url):
+    """Адрес модели вне стенда: страницы по нему уходят с этой машины и из её сети.
+
+    Сначала адрес проверяется как IP (в том числе IPv6 и числовая запись IPv4): свой — не
+    глобальный, то есть частный, петлевой, общий провайдерский (100.64/10). Имя без точки —
+    сервис compose (llm, model-host); localhost и имена в зонах .internal, .local и
+    .svc.cluster.local — свои. Всё остальное — внешний сервис.
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+    host = (urlsplit(url or "").hostname or "").lower().rstrip(".")
+    if not host:
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            # числовая запись IPv4 без точек (134744072, 0x8080808) — тоже адрес
+            address = ipaddress.ip_address(socket.inet_aton(host))
+        except OSError:
+            address = None
+    if address is not None:
+        return address.is_global
+    if host == "localhost" or "." not in host:
+        return False
+    return not host.endswith((".internal", ".local", ".svc.cluster.local", ".localhost"))
+
+
+# Чтение моделью может отправить страницы во внешний сервис: основным адресом или запасным.
+# Экран загрузки об этом предупреждает (воркер держит признак в Redis, API его отдаёт).
+# Признак не зависит от способа чтения объекта: исполнительные схемы читаются моделью при любом
+# способе (pipeline/pages.py, PIPELINE_ID_SCHEME_MODEL), проход по чертежам — при любом, кроме
+# «только слой». PIPELINE_MODEL_EXTERNAL=1 или 0 задаёт признак явно, если правило адресов ошибается.
+EXTERNAL_MODEL = (_flag("PIPELINE_MODEL_EXTERNAL", False) if os.environ.get("PIPELINE_MODEL_EXTERNAL", "").strip()
+                  else (MAIN_READY and is_external(MODEL_URL)) or (FALLBACK_READY and is_external(MODEL_FALLBACK_URL)))
+
+
 def probe_model(url, timeout=5, key_env=None):
     """Отвечает ли сервер модели: (да ли, почему нет, сетевой ли отказ).
 

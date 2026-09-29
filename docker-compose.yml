@@ -100,8 +100,10 @@ services:
       retries: 40
 
   minio:
-    # в Docker Hub образ minio/minio больше не раздаётся, официальный образ — в quay.io
-    image: quay.io/minio/minio:latest
+    # Официальные образы MinIO без входа не скачиваются: и quay.io/minio/minio, и minio/minio
+    # в Docker Hub отвечают 401 (проверено 29.09.2026). pgsty/minio — сборка того же сервера
+    # MinIO community (AGPL-3.0), скачивается без входа; данные прежнего образа читает.
+    image: docker.io/pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     # точка входа образа не читает пароль из файла, поэтому он подставляется оболочкой
     entrypoint: ["/bin/sh", "-c"]
     command: ['MINIO_ROOT_PASSWORD="$$(cat /secrets/minio_password)" exec minio server /data --console-address ":9001"']
@@ -187,6 +189,9 @@ services:
       # и через OpenRouter. Ключ нужен не всякому адресу — своя модель обычно без него.
       PIPELINE_MODEL_URL: ${PIPELINE_MODEL_URL:-}
       PIPELINE_MODEL_NAME: ${PIPELINE_MODEL_NAME:-}
+      # Уходят ли страницы во внешний сервис — для предупреждения на экране загрузки. Пусто —
+      # по адресам модели; 1 или 0 — явно, если своя модель стоит на адресе, похожем на внешний
+      PIPELINE_MODEL_EXTERNAL: ${PIPELINE_MODEL_EXTERNAL:-}
       # Что инспектор видит в списке моделей на экране загрузки: «id=Название» через запятую.
       # Тот же список читает API — там он показывается и проверяется. Первая строка идёт
       # по умолчанию, когда PIPELINE_MODEL_NAME не задан. В умолчании три открытых Qwen на одну

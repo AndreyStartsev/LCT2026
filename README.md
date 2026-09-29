@@ -318,6 +318,8 @@ for t in tests/test_*.py; do python "$t" > /dev/null || echo "СБОЙ $t"; done
 
 REST API по OpenAPI 3.0 с JWT и ролями `inspector`, `admin`, `expert`. Swagger —
 http://localhost:3000/api/docs, описание — [`service/openapi.json`](service/openapi.json).
+Пример ответа в формате сдачи — [`contracts/examples/submission.json`](contracts/examples/submission.json),
+протокол сервиса на открытом объекте Тюменская-5.
 
 <details>
 <summary><b>Основные методы</b></summary>
@@ -344,9 +346,17 @@ http://localhost:3000/api/docs, описание — [`service/openapi.json`](se
 | `service/` | веб-клиент, API, воркер, схема базы, мониторинг |
 | `pipeline/` | конвейер: реестр, чтение страниц, сверка, протокол |
 | `rules/` | правила Матрицы: закрыты, сборка выкачивает их по токену ([подробнее](rules/README.md)) |
-| `contracts/` | JSON-схемы протокола, находки, реестра и страницы |
+| `contracts/` | JSON-схемы протокола, находки, реестра и страницы; пример ответа сервиса |
 | `dictionary/` | словарь марок, синонимов и сокращений |
 | `docs/extracted/` | каталог 132 параметров Матрицы и реестры документов объектов |
 | `tools/` | загрузчик папки объекта, восстановление имён файлов |
 | `tests/` | проверки конвейера |
 | `deploy/` | стенд с видеокартой и облачный стенд с TLS |
+| `licenses/` | лицензии сторонних компонентов образов ([сводка](licenses/README.md)) |
+
+## Лицензия
+
+Код репозитория — [Apache License 2.0](LICENSE). Сторонние компоненты образов — по своим
+лицензиям, перечень в [`licenses/`](licenses/README.md). Образ worker включает PyMuPDF под
+AGPL-3.0; правила Матрицы — отдельные данные, лицензия на них не распространяется. Подробнее —
+[`NOTICE`](NOTICE).

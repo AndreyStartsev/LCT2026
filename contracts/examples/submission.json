@@ -1,0 +1,2102 @@
+{
+  "object_id": "OBJ-TYUMENSKAYA-5-GOLD-SEED",
+  "checks": [
+    {
+      "parameter_code": "AR-044",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 31
+        }
+      ],
+      "pd_value": null,
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 44,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "AR-045",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0157",
+          "pdf_page_number": 31
+        }
+      ],
+      "pd_value": "1.5; 1.6; 1.9; 2.1; 2.2; 2.6; 2.7; 2.8; 3.2; 3.5; 3.6; 3.7; 3.8; 3.9; 5.5; 5.9; 6.2; 7.2; 7.5; 8.6; 8.8; 11.3 %",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 45,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "AR-048",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0151",
+          "pdf_page_number": 17
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0151",
+          "pdf_page_number": 23
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 54
+        }
+      ],
+      "pd_value": "150 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 48,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "AR-049",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0157",
+          "pdf_page_number": 12
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0157",
+          "pdf_page_number": 14
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0157",
+          "pdf_page_number": 15
+        }
+      ],
+      "pd_value": "600; 900; 1200 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 49,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "FREE-OV-DESIGN-ELEMENT",
+      "location": "267",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 99
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0197",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0198",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 19
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 6
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 17
+        }
+      ],
+      "pd_value": "система подогрева полов (теплые полы) совмещенная с системой радиаторного отопления",
+      "rd_value": "в рабочей документации не названо",
+      "id_value": null,
+      "protocol_status": "WARNING",
+      "criticality": "Существенное (предписание) — требует утверждения",
+      "matrix_scope": "FREE_SEARCH",
+      "location_type": "ROOM",
+      "finding_status": "SUSPICION",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "FREE-OV-DESIGN-ELEMENT",
+      "location": "270",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 99
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0197",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0198",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 19
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 6
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 17
+        }
+      ],
+      "pd_value": "система подогрева полов (теплые полы) совмещенная с системой радиаторного отопления",
+      "rd_value": "в рабочей документации не названо",
+      "id_value": null,
+      "protocol_status": "WARNING",
+      "criticality": "Существенное (предписание) — требует утверждения",
+      "matrix_scope": "FREE_SEARCH",
+      "location_type": "ROOM",
+      "finding_status": "SUSPICION",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "FREE-OV-DESIGN-ELEMENT",
+      "location": "271",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 99
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0197",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0198",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 19
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 6
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 17
+        }
+      ],
+      "pd_value": "система подогрева полов (теплые полы) совмещенная с системой радиаторного отопления",
+      "rd_value": "в рабочей документации не названо",
+      "id_value": null,
+      "protocol_status": "WARNING",
+      "criticality": "Существенное (предписание) — требует утверждения",
+      "matrix_scope": "FREE_SEARCH",
+      "location_type": "ROOM",
+      "finding_status": "SUSPICION",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "FREE-OV-DESIGN-ELEMENT",
+      "location": "272",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 99
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0197",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0198",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 19
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 6
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 17
+        }
+      ],
+      "pd_value": "система подогрева полов (теплые полы) совмещенная с системой радиаторного отопления",
+      "rd_value": "в рабочей документации не названо",
+      "id_value": null,
+      "protocol_status": "WARNING",
+      "criticality": "Существенное (предписание) — требует утверждения",
+      "matrix_scope": "FREE_SEARCH",
+      "location_type": "ROOM",
+      "finding_status": "SUSPICION",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "FREE-VK-DESIGN-ELEMENT",
+      "location": "подземная часть",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0166",
+          "pdf_page_number": 9
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 6
+        }
+      ],
+      "pd_value": "система отвода дренажных вод с отдельными выпусками в 8",
+      "rd_value": "в рабочей документации не названо",
+      "id_value": null,
+      "protocol_status": "WARNING",
+      "criticality": "Существенное (предписание) — требует утверждения",
+      "matrix_scope": "FREE_SEARCH",
+      "location_type": "SECTION",
+      "finding_status": "SUSPICION",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "IOS2-072",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0164",
+          "pdf_page_number": 10
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0203",
+          "pdf_page_number": 7
+        }
+      ],
+      "pd_value": "магистрали: сталь оцинкованная; разводка: полимер; стояки: сталь оцинкованная",
+      "rd_value": "магистрали: сталь оцинкованная; разводка: полимер",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 72,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "IOS3-075",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0168",
+          "pdf_page_number": 9
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 6
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 14
+        }
+      ],
+      "pd_value": "водостоки: выпуски: полимер",
+      "rd_value": "водостоки: система целиком: ПВХ; водостоки: стояки: ПВХ; система целиком: ПВХ",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 75,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "124",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 84
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 16
+        }
+      ],
+      "pd_value": "3 системы: У2 (распознано с листа)",
+      "rd_value": "2 системы: У2 (распознано с листа)",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "CONFIGURATION_MISMATCH"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "125",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 84
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 16
+        }
+      ],
+      "pd_value": "3 системы: У3 (распознано с листа)",
+      "rd_value": "2 системы: У3 (распознано с листа)",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "CONFIGURATION_MISMATCH"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "140",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 83
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 88
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 16
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "3 системы: В2.7, В2.8, В2.9 (распознано с листа); поз. 169",
+      "rd_value": "систем для помещения нет",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "142",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 83
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 88
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 16
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "3 системы: В2.4, В2.5, В2.6 (распознано с листа); поз. 169",
+      "rd_value": "систем для помещения нет",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "MISSING_DESIGN_ELEMENT"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "147",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 83
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 88
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "1 система: В2.10 (распознано с листа); поз. 160",
+      "rd_value": "3 системы: В2.2, В2.3, В2.4 (распознано с листа); поз. 159, 160",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "CONFIGURATION_MISMATCH"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "198",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 83
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 88
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "2 системы: В2.2, В2.3 (распознано с листа); поз. 159, 160",
+      "rd_value": "3 системы: В2.10, В2.8, В2.9 (распознано с листа); поз. 159, 162",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "CONFIGURATION_MISMATCH"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "314",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 83
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 88
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 20
+        }
+      ],
+      "pd_value": "2 системы: В3.1, В3.2 (распознано с листа)",
+      "rd_value": "1 система: В3.1 (распознано с листа)",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "CONFIGURATION_MISMATCH"
+    },
+    {
+      "parameter_code": "IOS4-078",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 83
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 84
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 15
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 16
+        }
+      ],
+      "pd_value": "состав систем совпадает, помещений: 89",
+      "rd_value": "состав систем совпадает, помещений: 89",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 78,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "IOS4-079",
+      "location": "012",
+      "violation_label": "VIOLATION_PRESENT",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 85
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 94
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 104
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 156
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 17
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 272
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 279
+        }
+      ],
+      "pd_value": "П17: L=9060 м³/ч, Pc=350 Па",
+      "rd_value": "П17.1: L=3340 м³/ч, Pc=540 Па; П17.2: L=5720 м³/ч, Pc=540 Па",
+      "id_value": null,
+      "protocol_status": "CRITICAL",
+      "criticality": "Критическое (приостановка работ)",
+      "matrix_scope": "MATRIX",
+      "parameter_id": 79,
+      "location_type": "ROOM",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "CONFIGURATION_MISMATCH"
+    },
+    {
+      "parameter_code": "IOS4-079",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 158
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 303
+        }
+      ],
+      "pd_value": "расход не меньше проектного, установок: 64",
+      "rd_value": "расход не меньше проектного, установок: 64",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 79,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "KR-054",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 46
+        }
+      ],
+      "pd_value": "1315; 1400; 1575; 1785; 1895; 1925; 2380; 2400; 2500; 3100; 3225; 3550; 3600; 3750; 3870; 3885; 3985; 4065; 4275; 4305; 4500; 4560; 4575; 4625; 4740; 5000; 5160; 5250; 5750; 5910; 6040; 6200; 7820; 7825 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 54,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-055",
+      "location": "Вертикальные конструкции надземной части",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 19
+        }
+      ],
+      "pd_value": "B25/B30",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 55,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-055",
+      "location": "Вертикальные конструкции подземной части",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 19
+        }
+      ],
+      "pd_value": "B25/B30",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 55,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-055",
+      "location": "Плиты перекрытия надземной части",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 20
+        }
+      ],
+      "pd_value": "B25",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 55,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-055",
+      "location": "Плиты перекрытия подземной части",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 20
+        }
+      ],
+      "pd_value": "B25",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 55,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-055",
+      "location": "Ростверки",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0159",
+          "pdf_page_number": 16
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0159",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "B25",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 55,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-055",
+      "location": "Фундаментная плита",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "B30",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 55,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-056",
+      "location": "Стальные лестницы",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 19
+        }
+      ],
+      "pd_value": "С245",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 56,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-056",
+      "location": "Стальные фермы",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 20
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 21
+        }
+      ],
+      "pd_value": "С245/С345",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 56,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-058",
+      "location": "Фундаментная плита",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 17
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0169",
+          "pdf_page_number": 8
+        }
+      ],
+      "pd_value": "600 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 58,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-059",
+      "location": "Плиты перекрытия надземной части",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 20
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 46
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0193",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "200 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 59,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-059",
+      "location": "Плиты перекрытия подземной части",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 20
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0193",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "200 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 59,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "KR-061",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 21
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 51
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0189",
+          "pdf_page_number": 85
+        }
+      ],
+      "pd_value": "200; 250 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 61,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ODI-115",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 100
+        }
+      ],
+      "pd_value": "PRESENT",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 115,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ODI-117",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 101
+        }
+      ],
+      "pd_value": "1000; 1500 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 117,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ODI-118",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0151",
+          "pdf_page_number": 14
+        }
+      ],
+      "pd_value": "14 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 118,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ODI-119",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0151",
+          "pdf_page_number": 37
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0157",
+          "pdf_page_number": 28
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 58
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0197",
+          "pdf_page_number": 1
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 23
+        }
+      ],
+      "pd_value": "5 помещений: 5–14.6 м²",
+      "rd_value": "5 помещений: 5 м²",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 119,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "PPM-103",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0151",
+          "pdf_page_number": 19
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0193",
+          "pdf_page_number": 21
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0193",
+          "pdf_page_number": 22
+        }
+      ],
+      "pd_value": "8 мест",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 103,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PPM-105",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 101
+        }
+      ],
+      "pd_value": "1200 мм",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 105,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PPM-110",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0175",
+          "pdf_page_number": 17
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0193",
+          "pdf_page_number": 33
+        }
+      ],
+      "pd_value": "3-го типа",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 110,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PPM-112",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 167
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 168
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0171",
+          "pdf_page_number": 171
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 637
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 663
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 664
+        }
+      ],
+      "pd_value": "42 системы: L=630–35600 м³/ч",
+      "rd_value": "42 системы: L=630–35600 м³/ч",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 112,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "PPM-113",
+      "location": "Здание",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 23
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0164",
+          "pdf_page_number": 23
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0165",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0203",
+          "pdf_page_number": 45
+        }
+      ],
+      "pd_value": "1 струя по 3.7 л/с",
+      "rd_value": "1 струя по 3.7 л/с",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 113,
+      "location_type": "OBJECT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "PPM-114",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0163",
+          "pdf_page_number": 8
+        }
+      ],
+      "pd_value": "расход на наружное пожаротушение: 30 л/с",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 114,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-001",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "4650.91 м²",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 1,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-002",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "11618.27 м²",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 2,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-003",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "8010.1 м²",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 3,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-004",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 7
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 7
+        }
+      ],
+      "pd_value": "60997.93 м³",
+      "rd_value": "60997.93 м³",
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 4,
+      "location_type": "OBJECT",
+      "finding_status": "NOT_COMPARABLE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-007",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "3",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 7,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-008",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "15.814 м",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 8,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-009",
+      "location": "Отметка 0.000",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0158",
+          "pdf_page_number": 16
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0163",
+          "pdf_page_number": 8
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0163",
+          "pdf_page_number": 15
+        }
+      ],
+      "pd_value": "138.000 м",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 9,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-013",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "600",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 13,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-014",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0182",
+          "pdf_page_number": 13
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0182",
+          "pdf_page_number": 35
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0185",
+          "pdf_page_number": 13
+        }
+      ],
+      "pd_value": "1000 кВт",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 14,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-015",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 161
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 167
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0161",
+          "pdf_page_number": 30
+        }
+      ],
+      "pd_value": "III",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 15,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-016",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0164",
+          "pdf_page_number": 9
+        }
+      ],
+      "pd_value": "53.22 м³/сут",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 16,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-017",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 121
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0170",
+          "pdf_page_number": 15
+        }
+      ],
+      "pd_value": "1.832 Гкал/ч",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 17,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-022",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 36
+        }
+      ],
+      "pd_value": "II",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 22,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "PZ-023",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0179",
+          "pdf_page_number": 13
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0193",
+          "pdf_page_number": 67
+        }
+      ],
+      "pd_value": "С0",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 23,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "SPZU-033",
+      "location": "Строительная площадка",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 14
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 17
+        }
+      ],
+      "pd_value": "поперечные уклоны путей МГН · диапазон нормы: 10–20‰ (2 знач.); продольные уклоны путей МГН: 5‰; продольные уклоны путей МГН · предел нормы: 40‰",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 33,
+      "location_type": "SITE",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "SPZU-039",
+      "location": "Водоотводные лотки",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 14
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 19
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 20
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 22
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 23
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0155",
+          "pdf_page_number": 24
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 6
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 7
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 12
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0204",
+          "pdf_page_number": 14
+        }
+      ],
+      "pd_value": "PRESENT",
+      "rd_value": "PRESENT",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 39,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "DRAINAGE_NOT_EXCLUDED"
+    },
+    {
+      "parameter_code": "ZU-127",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0152",
+          "pdf_page_number": 38
+        }
+      ],
+      "pd_value": "1.058; 1.664; 2.214; 2.484; 2.673 м²·С/Вт",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 127,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ZU-129",
+      "location": "учёт: вода",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 193
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0150",
+          "pdf_page_number": 68
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0187",
+          "pdf_page_number": 75
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0203",
+          "pdf_page_number": 7
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0203",
+          "pdf_page_number": 18
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0203",
+          "pdf_page_number": 20
+        }
+      ],
+      "pd_value": "водомерный узел; водомерных узлов; счётчикам воды",
+      "rd_value": "Водомерный узел; ВСГ-40; ВСГ-25",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 129,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "ZU-129",
+      "location": "учёт: тепловая энергия",
+      "violation_label": "NO_VIOLATION",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 126
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 128
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0170",
+          "pdf_page_number": 22
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0201",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "RD",
+          "file_id": "F0202",
+          "pdf_page_number": 11
+        }
+      ],
+      "pd_value": "Узел учета тепловой энергии; узла учета тепловой энергии; теплосчетчика",
+      "rd_value": "Узел учета тепловой энергии",
+      "id_value": null,
+      "protocol_status": "OK",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 129,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "CANDIDATE",
+      "comparison_result": "EQUAL_PD_RD"
+    },
+    {
+      "parameter_code": "ZU-129",
+      "location": "учёт: электроэнергия",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0148",
+          "pdf_page_number": 151
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0160",
+          "pdf_page_number": 7
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0160",
+          "pdf_page_number": 26
+        }
+      ],
+      "pd_value": "учета электроэнергии; учета электрической энергии; учёта электрической энергии",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 129,
+      "location_type": "CONSTRUCTION_ELEMENT",
+      "finding_status": "NOT_COMPARABLE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ZU-130",
+      "location": "Здание",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0162",
+          "pdf_page_number": 9
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0162",
+          "pdf_page_number": 11
+        },
+        {
+          "stage": "PD",
+          "file_id": "F0162",
+          "pdf_page_number": 18
+        }
+      ],
+      "pd_value": "светодиодные",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 130,
+      "location_type": "OBJECT",
+      "finding_status": "NOT_COMPARABLE",
+      "comparison_result": "VALUE_MISMATCH"
+    },
+    {
+      "parameter_code": "ZU-131",
+      "location": "",
+      "violation_label": "COMPARISON_IMPOSSIBLE",
+      "evidence": [
+        {
+          "stage": "PD",
+          "file_id": "F0152",
+          "pdf_page_number": 67
+        }
+      ],
+      "pd_value": "107.978 кВт·ч/м²",
+      "rd_value": null,
+      "id_value": null,
+      "protocol_status": "COMPARISON_IMPOSSIBLE",
+      "criticality": null,
+      "matrix_scope": "MATRIX",
+      "parameter_id": 131,
+      "location_type": "OBJECT",
+      "finding_status": "MISSING_EVIDENCE",
+      "comparison_result": "VALUE_MISMATCH"
+    }
+  ]
+}

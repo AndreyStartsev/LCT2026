@@ -3,7 +3,7 @@ import { authenticate, bearer, requireRole } from "../auth.js";
 import { config } from "../config.js";
 import { audit, pool, withTransaction } from "../db.js";
 import { ApiError } from "../errors.js";
-import { redis } from "../cache.js";
+import { readExternalModel, redis } from "../cache.js";
 import { limitsView } from "../filecheck.js";
 import { deletionBlockers, iso, statusView } from "../process.js";
 import { queueReady } from "../queue.js";
@@ -107,10 +107,12 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
         storage: await probe(() => minio.bucketExists(config.s3.bucket)),
         cache: await probe(() => redis.ping()),
       };
+      // Redis не ответил на ping — второй запрос к нему только задержит ответ
+      const external = checks.cache ? await readExternalModel() : undefined;
       return {
         status: Object.values(checks).every(Boolean) ? "ok" : "degraded",
         checks,
-        limits: limitsView(),
+        limits: { ...limitsView(), ...(external === undefined ? {} : { external_model: external }) },
       };
     },
   );

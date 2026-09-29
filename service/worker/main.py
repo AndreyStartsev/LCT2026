@@ -141,6 +141,7 @@ def run_step(connection, step, process_id, context):
     extended = False
     serviced = True
     while proc.poll() is None:
+        publish_reading()
         if serviced:
             try:
                 connection.process_data_events(time_limit=1)
@@ -360,6 +361,35 @@ def handle(connection, channel, method, body):
     channel.basic_ack(method.delivery_tag)
 
 
+# Признак «модель во внешнем сервисе» для предупреждения на экране загрузки: ключ на воркер со сроком
+# жизни, обновляется из циклов воркера. Пропал Redis или воркер — ключ истекает, а живой воркер
+# записывает его снова за полминуты; API берёт «да», если так говорит хоть один живой воркер.
+READING_KEY = f"worker:reading:{socket.gethostname()}"
+READING_TTL_S = 120
+READING_REFRESH_S = 30
+_reading = {"at": float("-inf"), "warned": False}
+
+
+def publish_reading(force=False):
+    """Записать признак внешней модели, если с прошлой записи прошло больше READING_REFRESH_S.
+    Сбой Redis не мешает обработке; в журнал он пишется один раз до следующей удачной записи."""
+    now = time.monotonic()
+    if not force and now - _reading["at"] < READING_REFRESH_S:
+        return True
+    try:
+        infra.redis().set(READING_KEY, "1" if settings.EXTERNAL_MODEL else "0", ex=READING_TTL_S)
+        _reading.update(at=now, warned=False)
+        return True
+    except Exception as error:
+        # следующая попытка — тоже через READING_REFRESH_S: недоступный Redis не должен
+        # держать каждый виток цикла, который обслуживает соединение с брокером
+        _reading["at"] = now
+        if not _reading["warned"]:
+            log(f"признак внешней модели в Redis не записан: {error!r}", level="WARNING")
+            _reading["warned"] = True
+        return False
+
+
 def publish_rules():
     """Снимок правил образа — в базу, для страницы правил эксперта (Р-134). Сбой не мешает обработке:
     без снимка страница правил пуста, а разбор идёт как шёл."""
@@ -389,6 +419,7 @@ def run_ruletest(connection, test_id, process_id):
     started = time.monotonic()
     serviced = True
     while proc.poll() is None:
+        publish_reading()
         if serviced:
             try:
                 connection.process_data_events(time_limit=1)
@@ -469,6 +500,7 @@ def ruletest_bad_variant():
 
 def consume(connection, channel):
     while not _stop:
+        publish_reading()
         handled = False
         # сначала доводим начатые процессы до протокола, потом берём новые
         for queue in reversed(QUEUES):
@@ -506,13 +538,16 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     os.makedirs(settings.WORK_DIR, exist_ok=True)
     log(f"страницы {'да' if settings.PAGES else 'нет'}, распознавание {'да' if settings.OCR else 'нет'}, "
-        f"модель {'да' if settings.USE_MODEL else 'нет'}, повторов {settings.MAX_RETRIES}")
+        f"модель {'да' if settings.USE_MODEL else 'нет'}, повторов {settings.MAX_RETRIES}"
+        f"{', модель во внешнем сервисе' if settings.EXTERNAL_MODEL else ''}")
     rules_published = publish_rules()
+    publish_reading(force=True)
     while not _stop:
         connection = None
         # база могла быть недоступна при старте: снимок повторяется при переподключении к очереди
         if not rules_published:
             rules_published = publish_rules()
+        publish_reading()
         try:
             connection = pika.BlockingConnection(infra.amqp_params())
             channel = connection.channel()

@@ -17,7 +17,7 @@ import {
   type Session,
 } from "../api";
 import { keyAction } from "../keys";
-import { APPROVAL_HINT, auditLine, bytes, criticalityWeight, plural, PROCESS_STATUS, SCENARIO, STAGE_NAME, STEP, when } from "../labels";
+import { APPROVAL_HINT, auditLine, bytes, criticalityWeight, EXTERNAL_MODEL_RERUN, plural, PROCESS_STATUS, SCENARIO, STAGE_NAME, STEP, when } from "../labels";
 import {
   isCandidate,
   isHypothesis,
@@ -927,6 +927,7 @@ export default function VerificationScreen({
               </ul>
             </div>
           )}
+          {limits?.external_model && <p className="alert external-model small">{EXTERNAL_MODEL_RERUN}</p>}
           {ask !== "start" && (
             <p className="small muted">
               Протокол пересоберётся: решения инспектора, возвраты в кандидаты и взятые гипотезы сохранятся. Пока идёт
@@ -1124,7 +1125,7 @@ export default function VerificationScreen({
           {status.processing.state === "FAILED" && (
             <div className="alert">
               Обработка остановлена на шаге «{STEP[status.processing.step ?? ""] ?? status.processing.step}»: {status.processing.error}.
-              Администратор уведомлён.{" "}
+              Администратор уведомлён.{limits?.external_model ? ` ${EXTERNAL_MODEL_RERUN}` : ""}{" "}
               <button
                 type="button"
                 className="btn"

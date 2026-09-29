@@ -12,6 +12,8 @@ export interface Limits {
   /** Модели для способа чтения «модель» (#54): пусто — выбор не предлагается */
   reading_models?: { id: string; label: string }[];
   model_default?: string | null;
+  /** Модель чтения во внешнем сервисе: экран загрузки предупреждает (только в /health) */
+  external_model?: boolean;
 }
 
 export interface Processing {

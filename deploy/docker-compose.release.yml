@@ -96,8 +96,10 @@ services:
     restart: unless-stopped
 
   minio:
-    # закреплённый выпуск вместо latest: тот, на котором работает стенд разработки
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Тот же выпуск, что у стенда разработки (docker-compose.yml), но ссылкой только по тегу:
+    # docker save по ссылке tag@digest кладёт образ в архив без имени, и после docker load
+    # compose его не находит. Digest сверяет tools/release_bundle.sh после скачивания.
+    image: docker.io/pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     restart: unless-stopped
 
   postgres: { restart: unless-stopped }

@@ -87,6 +87,12 @@ export const sharedSchemas: Record<string, unknown>[] = [
         },
       },
       model_default: { ...nullableString, description: "Модель сервиса по умолчанию" },
+      external_model: {
+        type: "boolean",
+        description:
+          "Чтение моделью уходит во внешний сервис: страницы нового комплекта прочитает внешняя модель. " +
+          "Отдаётся только в /api/v1/health и только когда хоть один воркер жив и сообщил признак",
+      },
     },
   },
   {

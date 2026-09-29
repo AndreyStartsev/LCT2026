@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, loadSession, logout, setUnauthorizedHandler, type Limits, type ObjectItem, type Session } from "./api";
 import Login from "./components/Login";
 import DatasetScreen from "./components/DatasetScreen";
@@ -102,12 +102,30 @@ export default function App() {
     }
   }, []);
 
+  // Лимиты и признак внешней модели перечитываются при каждом переходе между экранами: воркер
+  // мог смениться или перезапуститься, а предупреждение о внешней модели должно быть свежим
+  const limitsLoaded = useRef(false);
   useEffect(() => {
     if (!session) return;
+    let current = true;
     api
       .health()
-      .then((h) => setLimits(h.limits))
-      .catch((e) => setError((e as Error).message));
+      .then((h) => {
+        if (!current) return;
+        limitsLoaded.current = true;
+        setLimits(h.limits);
+      })
+      // сбой повторного запроса не закрывает экран: остаются прежние лимиты
+      .catch((e) => {
+        if (current && !limitsLoaded.current) setError((e as Error).message);
+      });
+    return () => {
+      current = false;
+    };
+  }, [session, view.kind]);
+
+  useEffect(() => {
+    if (!session) return;
     refreshObjects();
     const timer = window.setInterval(refreshObjects, 10000);
     return () => window.clearInterval(timer);

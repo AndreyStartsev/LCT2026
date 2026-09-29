@@ -352,6 +352,12 @@ h1 {
   padding: 7px 11px;
   background: var(--paper-2);
 }
+/* Модель чтения во внешнем сервисе: предупреждение над формой загрузки */
+.alert.external-model {
+  border-color: var(--clarify);
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
 .note-line {
   border-left: 3px solid var(--rule);
   padding: 4px 10px;

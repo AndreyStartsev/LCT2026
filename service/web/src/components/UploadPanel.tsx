@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { api, ApiFailure, READING_MODES, uploadBatch, type Limits, type ObjectItem, type ReadingMode, type UploadResult } from "../api";
-import { bytes, READING_MODE, READING_MODE_HINT } from "../labels";
+import { bytes, EXTERNAL_MODEL_NOTICE, READING_MODE, READING_MODE_HINT } from "../labels";
 import { plan, relativePathOf, type Picked, type Plan } from "../upload";
 import { beginUpload, dropFailed, endUpload, updateUpload, useUploads } from "../uploads";
 
@@ -315,6 +315,12 @@ export default function UploadPanel({ limits, objects, processId, title, submitL
           </p>
         </div>
       </header>
+
+      {limits.external_model && (
+        <div className="alert external-model" role="note">
+          <strong>{EXTERNAL_MODEL_NOTICE.title}</strong> {EXTERNAL_MODEL_NOTICE.text}
+        </div>
+      )}
 
       {!processId && (
         <>
