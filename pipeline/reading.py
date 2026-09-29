@@ -144,7 +144,13 @@ OCR_ENABLED = os.environ.get("PIPELINE_OCR", "1") != "0"
 # сразу после того, как её прочитали Tesseract и модель (`drop_render`, #67), кешируется
 # только текст. Если чтение упало посередине, картинка остаётся — каталог одноразовый.
 RENDER_DIR = os.environ.get("PIPELINE_RENDER_DIR") or os.path.join(tempfile.gettempdir(), "inspector-render")
-DEFAULT_MODEL = "google/gemini-2.5-flash-lite"
+# Модель по умолчанию — выбранная под прод (Р-55): она первая в списке моделей сервиса
+# (PIPELINE_MODEL_CHOICES), её раздаёт своя модель поставки (service/llm/serve.py) и спрашивает
+# прицельный проход (vlm_values.MODEL). Берётся, когда у вызова нет имени модели и не заданы
+# PIPELINE_MODEL_NAME и BENCH_MODEL: командная строка, замеры, сервис с пустым списком моделей
+# (Р-169). Прежнее умолчание google/gemini-2.5-flash-lite — на нём сняты 0,967 режима model в
+# замере #54; повторить тот замер — bench/measure_reading_modes.py --model-name с его именем
+DEFAULT_MODEL = "qwen/qwen3.6-27b"
 
 PROMPT = (
     "Это страница российской строительной документации. "

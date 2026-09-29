@@ -438,8 +438,23 @@ def step_parse(conn, process):
     if settings.PAGES:
         todo = [d for d in documents if only is None or d["file_id"] in only]
         total_pages = sum(d.get("pdf_pages") or 0 for d in todo if not d.get("duplicate_of"))
+        # Исполнительные схемы читает модель сервиса и у объекта, который читается без модели (Р-168).
+        # Модель, которую разбор уже признал недоступной, второй раз не спрашивается: инспектор
+        # предупреждён выше, и схемы читаются без неё
+        schemes, schemes_why = (settings.scheme_model(mode, use_model, todo, process.get("model_name"))
+                                if route is not None else (None, None))
+        if schemes:
+            print(f"исполнительные схемы: читает модель {schemes}"
+                  + (f"; {schemes_why}, читает запасной адрес" if schemes_why else ""))
+        elif schemes_why:
+            print(f"исполнительные схемы: прочитаны без модели — {schemes_why}")
+        if schemes_why:
+            infra.notify(conn, "inspector", "WARNING",
+                         f"Исполнительные схемы: {schemes_why}, их читает модель по запасному адресу" if schemes
+                         else f"Исполнительные схемы прочитаны без модели: {schemes_why}", pid, category="QUALITY")
         rows = pages_mod.build(
-            obj, todo, use_model=use_model, model=model, use_ocr=use_ocr, workers=settings.PAGE_WORKERS,
+            obj, todo, use_model=use_model, model=model or schemes, id_scheme_model=bool(schemes),
+            use_ocr=use_ocr, workers=settings.PAGE_WORKERS,
             progress=lambda n: infra.progress(pid, "parse", "Чтение страниц", n, total_pages))
         if only is not None:
             kept = cli.read_jsonl(out_path(obj, "pages.jsonl")) if os.path.exists(out_path(obj, "pages.jsonl")) else []

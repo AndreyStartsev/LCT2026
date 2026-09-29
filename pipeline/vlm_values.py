@@ -48,8 +48,8 @@ WORKERS = max(1, int(os.environ.get("PIPELINE_VLM_WORKERS") or 1))
 # MuPDF один на процесс (#113): открывать, рисовать и закрывать PDF из разных потоков можно
 # только по очереди. Под замком только работа с PDF, вопрос модели идёт без него
 PDF_LOCK = threading.Lock()
-# Модель под прод — Р-55; здесь то же имя, что и у чтения страниц
-MODEL = os.environ.get("PIPELINE_VLM_MODEL") or "qwen/qwen3.6-27b"
+# Модель под прод — Р-55: то же умолчание, что и у чтения страниц (Р-169)
+MODEL = os.environ.get("PIPELINE_VLM_MODEL") or reading.DEFAULT_MODEL
 NUMBER_RE = re.compile(r"-?\d+(?:[.,]\d+)?")
 # Виды правил, чьи вопросы задаёт проход: число с чертежа (#98) и двери с направлением открывания
 # (AR-043, #191). У второго ответ — не числа, а перечень дверей (`vlm.answer: "doors"`)

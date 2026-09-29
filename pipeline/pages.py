@@ -26,7 +26,9 @@ ID_SCHEME_RE = re.compile(r"(?:исполнительн\w*|исп\.?)\s*схем
 # («режим чтения выбирается на объект»), и вот его цена: во всём корпусе таких страниц
 # 265 на двух объектах из девяти, а числа на них — единственный источник исполнительной
 # геометрии: отметки, промеры и таблицы допусков нарисованы, и Tesseract не читает
-# с них ни одного значения (#85). Выключается PIPELINE_ID_SCHEME_MODEL=0
+# с них ни одного значения (#85). Выключается PIPELINE_ID_SCHEME_MODEL=0. Сервис решает
+# это на объект сам (`id_scheme_model` у `build`, Р-168): при «распознавании» схемы читает
+# модель сервиса, при «только слое» модель не зовётся
 ID_SCHEME_MODEL = os.environ.get("PIPELINE_ID_SCHEME_MODEL", "1").strip().lower() \
     not in ("0", "false", "no", "")
 
@@ -82,7 +84,8 @@ def _read(task):
     return page_no, doc_row, got
 
 
-def build(object_id, documents, use_model=True, model=None, progress=None, workers=6, use_ocr=None):
+def build(object_id, documents, use_model=True, model=None, progress=None, workers=6, use_ocr=None,
+          id_scheme_model=None):
     """Собрать постраничный индекс по реестру документов.
 
     Страницы читаются параллельно, процессами: распознавание упирается в процессор, запрос
@@ -97,9 +100,14 @@ def build(object_id, documents, use_model=True, model=None, progress=None, worke
 
     `use_ocr` — распознавать ли сканы; None означает настройку окружения. Сервис задаёт
     его явно: способ чтения выбирается на объект, а не на весь воркер (#54).
+
+    `id_scheme_model` — читать ли исполнительные схемы моделью `model`, когда `use_model`
+    выключен; None означает настройку окружения `PIPELINE_ID_SCHEME_MODEL`. Сервис задаёт его
+    явно: при «только слое» и без модели схемы моделью не читаются (Р-168).
     """
     import multiprocessing
     import pymupdf
+    schemes = ID_SCHEME_MODEL if id_scheme_model is None else bool(id_scheme_model)
     root = OBJECTS[object_id]["root"]
     rows = []
     tasks = []
@@ -116,9 +124,9 @@ def build(object_id, documents, use_model=True, model=None, progress=None, worke
                          "kind": "SCAN_NO_TEXT", "text_source": "NONE",
                          "quality": "ABSTAIN", "error": f"{type(e).__name__}: {e}"[:160]})
             continue
-        # исполнительную схему читаем моделью независимо от режима: иначе её числа
-        # не появляются вовсе (#85)
-        doc_model = use_model or (ID_SCHEME_MODEL and id_scheme(doc_row))
+        # исполнительную схему читаем моделью, даже когда объект читается без неё: иначе её
+        # числа не появляются вовсе (#85)
+        doc_model = use_model or (schemes and id_scheme(doc_row))
         tasks.extend((doc_row, path, doc_model, model, use_ocr, page_no) for page_no in range(1, n_pages + 1))
 
     if not tasks:

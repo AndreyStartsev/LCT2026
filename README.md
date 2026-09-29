@@ -117,7 +117,9 @@ echo "RULES_TOKEN=<токен>" > .env
 docker compose up --build
 ```
 
-Откройте **http://localhost:8080** и войдите как `inspector` / `inspector`.
+Откройте **http://localhost:8080** и войдите как `inspector` / `inspector`. Для первой проверки загрузите
+папку [`examples/demo-package/НК12-2023`](examples/demo-package/README.md): вымышленный объект из 7 PDF
+с двумя заложенными нарушениями, разбор за секунды.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#F3EEFA", "primaryTextColor": "#1C1D22", "primaryBorderColor": "#8A83D1", "lineColor": "#8A83D1", "edgeLabelBackground": "#FFFFFF", "clusterBkg": "#FBFAFD", "clusterBorder": "#D9D4F2"}}}%%
@@ -350,6 +352,7 @@ http://localhost:3000/api/docs, описание — [`service/openapi.json`](se
 | `dictionary/` | словарь марок, синонимов и сокращений |
 | `docs/extracted/` | каталог 132 параметров Матрицы и реестры документов объектов |
 | `tools/` | загрузчик папки объекта, восстановление имён файлов |
+| `examples/` | демонстрационный пакет: вымышленный объект с двумя нарушениями ([подробнее](examples/demo-package/README.md)) |
 | `tests/` | проверки конвейера |
 | `deploy/` | стенд с видеокартой и облачный стенд с TLS |
 | `licenses/` | лицензии сторонних компонентов образов ([сводка](licenses/README.md)) |

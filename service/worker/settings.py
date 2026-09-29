@@ -152,9 +152,9 @@ def is_external(url):
 
 # Чтение моделью может отправить страницы во внешний сервис: основным адресом или запасным.
 # Экран загрузки об этом предупреждает (воркер держит признак в Redis, API его отдаёт).
-# Признак не зависит от способа чтения объекта: исполнительные схемы читаются моделью при любом
-# способе (pipeline/pages.py, PIPELINE_ID_SCHEME_MODEL), проход по чертежам — при любом, кроме
-# «только слой». PIPELINE_MODEL_EXTERNAL=1 или 0 задаёт признак явно, если правило адресов ошибается.
+# Признак не зависит от способа чтения объекта: исполнительные схемы (pipeline/pages.py,
+# PIPELINE_ID_SCHEME_MODEL, `scheme_model`) и проход по чертежам идут к модели при любом способе,
+# кроме «только слой». PIPELINE_MODEL_EXTERNAL=1 или 0 задаёт признак явно, если правило адресов ошибается.
 EXTERNAL_MODEL = (_flag("PIPELINE_MODEL_EXTERNAL", False) if os.environ.get("PIPELINE_MODEL_EXTERNAL", "").strip()
                   else (MAIN_READY and is_external(MODEL_URL)) or (FALLBACK_READY and is_external(MODEL_FALLBACK_URL)))
 
@@ -253,6 +253,32 @@ def reading_flags(requested=None):
         mode = reading_mode(requested)
         return mode, mode in ("tesseract", "model"), mode == "model"
     return mode_of(OCR, USE_MODEL), OCR, USE_MODEL
+
+
+def scheme_model(mode, use_model, documents, requested=None):
+    """Какой моделью читать исполнительные схемы объекта, который читается без модели (Р-168).
+
+    Схемы читаются моделью и при способе «распознавание» (Р-77): числа на них нарисованы, и
+    распознавание их не берёт. Модель та же, что у способа «модель», — модель сервиса по его
+    адресу. Без имени чтение страниц брало модель конвейера по умолчанию, и своя модель на стенде
+    поставки отвечала на неё 404, а схема уходила на запасной адрес, из контура. «Только слой»
+    модель не зовёт, как и прицельный проход. Своя модель проверяется один раз, без ожидания:
+    ради нескольких листов разбор её не ждёт.
+
+    (None, None) — схемы моделью не читаются: объект и так читается моделью, способ «только слой»,
+    модель не настроена или схем среди документов нет. (None, почему) — своя модель не отвечает,
+    запасного адреса нет. (имя, None) — схемы читает модель сервиса; (имя, почему) — по запасному адресу.
+    """
+    from pipeline import pages, reading
+    if use_model or mode == "layer" or not MODEL_READY or not pages.ID_SCHEME_MODEL:
+        return None, None
+    if not any(d.get("extension") == ".pdf" and not d.get("duplicate_of") and pages.id_scheme(d)
+               for d in documents):
+        return None, None
+    route, why = model_route(wait_s=0)
+    if route is None:
+        return None, why
+    return model_for(requested) or reading.model_name(), why
 
 # ТЗ: таймаут обработки — до двух повторов, затем уведомление администратора.
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "2"))

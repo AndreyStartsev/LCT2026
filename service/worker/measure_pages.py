@@ -82,6 +82,11 @@ def measure(path, mode, use_ocr, use_model, model, workers, max_pages, stage):
         total_pages = probe.page_count
     document = {"file_id": "M0001", "relative_path": os.path.basename(path), "extension": ".pdf",
                 "sha256": sha256_of(path), "stage": stage, "section": None, "duplicate_of": None}
+    # исполнительную схему и без модели у объекта читает модель сервиса, как в разборе (Р-168)
+    schemes, schemes_why = settings.scheme_model(mode, use_model, [document])
+    if schemes or schemes_why:
+        what = f"читает модель {schemes}" if schemes else "без модели"
+        print(f"   исполнительная схема: {what}" + (f" — {schemes_why}" if schemes_why else ""), flush=True)
     started = time.monotonic()
 
     def progress(done):
@@ -98,8 +103,8 @@ def measure(path, mode, use_ocr, use_model, model, workers, max_pages, stage):
             config.register_object(object_id, cache)
             document["sha256"] = sha256_of(trimmed)
             started = time.monotonic()
-        rows = pages.build(object_id, [document], use_model=use_model, model=model, use_ocr=use_ocr,
-                           workers=workers, progress=progress)
+        rows = pages.build(object_id, [document], use_model=use_model, model=model or schemes,
+                           id_scheme_model=bool(schemes), use_ocr=use_ocr, workers=workers, progress=progress)
         seconds = time.monotonic() - started
     finally:
         shutil.rmtree(cache, ignore_errors=True)
