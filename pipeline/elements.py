@@ -1037,6 +1037,14 @@ REVISION_BACK = 120
 # отбрасывается
 _FRACTION_END = re.compile(r"\d[.,]$")
 
+# Шаг армирования и второй размер сечения — тоже не толщина (#254, Р-166). За толщиной плиты хвост встречает
+# «предусмотреть установку СК1 с шагом 200 мм», «с шагом 200х200 мм по всей площади плиты», «балки с размерами
+# 1100х300 мм», «по балкам сечения 250х500мм», и «число + мм» становилось ещё одной толщиной: у Речникова РД
+# перекрытий надземной части выходил «200/300 мм», у Тюменской ПД — «200/500 мм». Шаг узнаётся по слову «шаг»
+# перед числом (через два слова без цифр: «с шагом не более 200 мм»), второй размер — по «N×» вплотную перед ним
+_STEP_BEFORE = re.compile(r"шаг\w*\s+(?:[^\s\d]+\s+){0,2}(?:\d{2,4}\s*[хx×*]\s*)?$", re.I)
+_SECOND_SIZE = re.compile(r"\d{2,4}\s*[хx×*]\s*$", re.I)
+
 
 def _thickness_rows(flat, pattern, low, high, strict_tail=False, local_head=False):
     """Толщины по шаблону: [(числа, фрагмент, начало совпадения)].
@@ -1054,6 +1062,9 @@ def _thickness_rows(flat, pattern, low, high, strict_tail=False, local_head=Fals
     Дробные части чисел (`_FRACTION_END`) не берутся ни в каком режиме — ни первым числом, ни из
     хвоста. Раньше их отсекал только `strict_tail`, а за толщиной фундаментной плиты тоже стоят
     отметки, и отметка низа плиты становилась её толщиной.
+
+    Шаг армирования и второй размер сечения (`_STEP_BEFORE`, `_SECOND_SIZE`) из хвоста тоже не
+    берутся ни в каком режиме (#254).
     """
     out = []
     for m in pattern.finditer(flat):
@@ -1085,6 +1096,8 @@ def _thickness_rows(flat, pattern, low, high, strict_tail=False, local_head=Fals
                 # «t=500 мм -3,940 (147,86) -3,440 (148,36)» в таблице ИОС3 школы Полярная 25 давало 440 и 940,
                 # «толщиной 900 мм (низ на отм. -4,400, абс. отм. 141,80)» у ростверка Полярной 16 — 400
                 continue
+            if _SECOND_SIZE.search(before) or _STEP_BEFORE.search(before[-40:]):
+                continue          # второй размер «N×M» или шаг армирования, а не толщина (#254)
             if strict_tail and before.count("(") > before.count(")"):
                 continue          # число внутри скобок — нагрузка или ссылка, а не толщина
             values.add(int(mm.group(1) or mm.group(2)))
@@ -1128,6 +1141,38 @@ def slab_thickness(flat):
         zone = zone_of(flat[slice(*_zone_window(flat, pos))])
         form = "mark" if _SHEET_MARK.search(snippet) else "prose"
         out.append((values, snippet, zone, form))
+    return out
+
+
+# Лист схемы плиты перекрытия (Р-167). Участок плиты подписан толщиной и отметкой верха — «t=200 -2,100», а название
+# листа («Схема расположения плиты перекрытия в осях 1/1-1/7 на отм. -2,100») стоит в штампе, в конце текста, так что
+# `slab_thickness` подпись к плите не привязывает. У Речникова плита на −2,100 толщиной 200 мм в ПД названа только так
+# (лист 4 КР2-кор3), и довод #136 «в проекте такая толщина тоже есть» держался на плите покрытия надземного корпуса.
+# Подпись листа — не значение стадии: она идёт только в набор «в проекте есть» (`every` решения по плитам), часть
+# здания — по знаку отметки в самой подписи. Подписи без отметки («t=180 1200 20») не берутся, и подписи стен,
+# пилонов, балок на том же листе тоже: «Стена монолитная ж.б. t=250 +6,110» у Октябрьской — толщина стены
+_SLAB_SHEET_TITLE = re.compile(r"схем\w*\s+(?:расположени\w*\s+|армировани\w*\s+)?плит\w*\s+(?:перекрыти|покрыти)\w*",
+                               re.I)
+_SHEET_MARK_LEVEL = re.compile(r"(?<!\w)[ht]\s*=\s*(\d{2,4})\s+" + _LEVEL, re.I)
+_SHEET_MARK_OTHER = re.compile(r"стен\w*|пилон\w*|колонн\w*|балк\w*|ригел\w*|парапет\w*", re.I)
+
+
+def slab_sheet_marks(flat):
+    """Подписи толщины на листе схемы плиты перекрытия: [(толщина, фрагмент, часть здания)], по одной на
+    толщину и часть здания. Нулевая отметка части здания не называет — такая подпись не берётся."""
+    if not _SLAB_SHEET_TITLE.search(flat):
+        return []
+    out, seen = [], set()
+    for m in _SHEET_MARK_LEVEL.finditer(flat):
+        value, sign, whole, frac = int(m.group(1)), m.group(2), m.group(3), m.group(4)
+        if not SLAB_RANGE[0] <= value <= SLAB_RANGE[1] or not (int(whole) or int(frac)):
+            continue
+        if _SHEET_MARK_OTHER.search(flat[max(0, m.start() - 30):m.start()]):
+            continue
+        zone = ABOVEGROUND if sign == "+" else UNDERGROUND
+        if (value, zone) not in seen:
+            seen.add((value, zone))
+            out.append((value, flat[max(0, m.start() - 60):m.end()].strip(), zone))
     return out
 
 

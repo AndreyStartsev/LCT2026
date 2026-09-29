@@ -994,6 +994,12 @@ def extract(rule, text, classes=None, doc=None, page_no=None, prev_text=None):
                              "location": location, "binding": binding, "snippet": snippet,
                              **({"enumerated": True} if enumerated else {})}
                             for v in values]
+            # лист схемы плиты перекрытия (Р-167): подпись «t=200 -2,100» — только в набор «в проекте такая толщина
+            # есть» (`every`), не в значение стадии. `element_findings` отделяет такие кандидаты по `every_only`
+            for value, snippet, zone in elements.slab_sheet_marks(flat):
+                for location in elements.location_names(element, zone):
+                    out.append({"value": value, "raw": str(value), "columns": [str(value)], "label": location,
+                                "location": location, "binding": "SHEET", "snippet": snippet, "every_only": True})
             return out
         return [{"value": v, "raw": str(v), "columns": [str(v)], "label": element,
                  "location": element, "binding": "CLAUSE", "snippet": snippet}
@@ -2379,8 +2385,12 @@ def _set_raw(rule, values):
     return "/".join(f"{v:g}" for v in values) + " мм"
 
 
-def reconcile_set(rule, cands, by_registry=False):
+def reconcile_set(rule, cands, by_registry=False, every_extra=()):
     """Значения элемента в стадии — множество, как в эталоне: «1000/1200 мм».
+
+    `every_extra` — подписи листа схемы плиты (Р-167): они дополняют только набор «в проекте есть» (`every`,
+    его страницы и цитаты), но не значение стадии, страницы доказательств, альтернативы и сомнения. Сторону
+    сами не заводят: без обычных кандидатов стадия пуста, как и была.
 
     Страницы доказательств — по крепости привязки, затем по числу упоминаний на странице;
     `by_registry` — вместо числа упоминаний порядок реестра: акты освидетельствования идут
@@ -2443,11 +2453,11 @@ def reconcile_set(rule, cands, by_registry=False):
     enumerated = [v for v in values if all(c.get("enumerated") for c in chosen if c["value"] == v)]
     # все значения стадии при любой привязке, лист чертежа тоже: у Речникова плита на −2,100
     # толщиной 200 мм в ПД есть только подписью «t=200» на листе КР2-кор3 (#136)
-    every = sorted({c["value"] for c in cands})
+    every = sorted({c["value"] for c in cands} | {c["value"] for c in every_extra})
     every_pages = collections.defaultdict(list)
     # цитата страницы — первый кандидат с этим значением в порядке обхода, то есть с самой крепкой привязкой (Р-158)
     every_quotes = {}
-    for c in sorted(cands, key=lambda c: (BINDING_RANK[c["binding"]], c["file_id"], c["page"])):
+    for c in sorted([*cands, *every_extra], key=lambda c: (BINDING_RANK[c["binding"]], c["file_id"], c["page"])):
         if (c["file_id"], c["page"]) not in every_pages[c["value"]] and len(every_pages[c["value"]]) < 2:
             every_pages[c["value"]].append((c["file_id"], c["page"]))
             every_quotes[(c["value"], c["file_id"], c["page"])] = c["snippet"]
@@ -2589,9 +2599,15 @@ def element_findings(object_id, code, rule, found, catalog):
     """Находки параметра по элементам: одна запись на элемент, как в эталоне организатора."""
     cat = catalog.get(code, {})
     by_loc = collections.defaultdict(lambda: collections.defaultdict(list))
+    # подписи листа схемы плиты (Р-167) — только набор «в проекте есть»: запись они не заводят, элемент стадии
+    # не называют, в выбор редакции, историю значений и страницы доказательств значения не идут
+    every_only = collections.defaultdict(lambda: collections.defaultdict(list))
     named = {"PD": set(), "RD": set(), "ID": set()}
     for stage in ("PD", "RD", "ID"):
         for c in found.get(stage, []):
+            if c.get("every_only"):
+                every_only[c["location"]][stage].append(c)
+                continue
             by_loc[c["location"]][stage].append(c)
             named[stage].add(c["location"])
     out = []
@@ -2606,7 +2622,10 @@ def element_findings(object_id, code, rule, found, catalog):
                 # «по чертежам КЖ» в томе дренажа (#229). Нет значения в КЖ — сравнивать не с чем
                 outside[stage] = sorted({os.path.basename(c["document"]) for c in cands})
                 cands, fb = [], False
-            sides[stage], fallback[stage] = reconcile_set(rule, cands, by_registry=(stage == "ID")), fb
+            # те же отборы редакции и раздела-источника, но отдельно: подписи листа выбор редакции не двигают
+            extra, _ = prefer_source(latest_only(every_only[loc].get(stage, [])), source_hints(cat.get(field)))
+            sides[stage] = reconcile_set(rule, cands, by_registry=(stage == "ID"), every_extra=extra)
+            fallback[stage] = fb
             history[stage] = revision_history(by_loc[loc].get(stage, []), sides[stage])
         pd, rd, built = sides["PD"], sides["RD"], sides["ID"]
         label, result, detail = decide_set(rule, pd, rd, named, loc)
