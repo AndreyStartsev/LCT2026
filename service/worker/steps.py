@@ -345,8 +345,11 @@ def parse_plan(obj, documents, previous, restaged, mode):
     """Что перечитывать при разборе (#60): (весь объект, документы для чтения, причина)."""
     from pipeline import incremental
 
+    # стадия или раздел не те, что при прошлом разборе (правка, снятая правка), — весь объект:
+    # `incremental.plan` сравнивает с итогом прошлого разбора. Ручная стадия, отличная от
+    # угаданной по пути, перечитывает документ и тогда, когда стоит с прошлого разбора
     full, fresh, why = incremental.plan(documents, previous)
-    fresh |= restaged          # стадию поправил инспектор: содержимое то же, разбор другой
+    fresh |= restaged
     if not full and not os.path.exists(out_path(obj, "pages.jsonl")):
         full, why = True, "постраничного индекса прошлого разбора нет"
     was = pages_mode_changed(obj, mode)

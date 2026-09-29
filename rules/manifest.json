@@ -1,13 +1,13 @@
 {
   "$comment": "Правила Матрицы для этой версии кода: закрытый репозиторий, коммит и суммы SHA-256 файлов. Выкачивает rules/fetch.py.",
   "repo": "CyberMaryVer/inspector-rules",
-  "ref": "77b76a786286eb48cff54e5449fbfa1990a42473",
+  "ref": "90338127f8580d2e8c651d4389099cda678b3ba2",
   "path": "rules",
   "files": {
     "matrix_queue1.json": "ec1c65408a7450985988d9ec01161f9be7f0747dfbc781994f4ac88deac4d9d7",
     "matrix_queue2.json": "373937632f588e675d3d4ef29fe6a4ed9788567b4250ed2f69c863de0e8c248b",
-    "matrix_queue3.json": "da3f971601a18676bd8283210fcc7b0f3495ed866c00784beadc6b68dd8cbe97",
-    "matrix_queue4.json": "cff12ec7af2841c18768c18d7d0a4790bc9ec92a0e59d5f0c721bce04cb9bfc8",
+    "matrix_queue3.json": "6494936d66c90e1e9e54699a6897f3d82a81fd556336585161560dfed124f06c",
+    "matrix_queue4.json": "7ffbbabe8413fa765ba8a58e40967b8ed523feec0d702d3cddf5a00e435458a5",
     "matrix_queue5.json": "4c9e105ecb5a784e449d1488ca61e3b89b4b077207eae64fa0bc144d515c9e87",
     "specialist_guidance.json": "ae90e97c37734dc9bbf8a27dbf057ca4dec1d080d5d14a37ef29f5618694055f",
     "provisional/q1.json": "4c5b12b384ac2dd393a1e4e073ee0b5c3533256c097744cd555e7962b06fa22f",

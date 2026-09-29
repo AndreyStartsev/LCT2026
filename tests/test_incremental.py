@@ -55,6 +55,64 @@ def test_what_changed():
     return ok
 
 
+def parsed(file_id, sha, stage, section, stage_detected=None, section_detected=None, **extra):
+    """Строка итога прошлого разбора: стадия и раздел — после разбора редакций."""
+    return {"file_id": file_id, "sha256": sha, "stage": stage, "section": section,
+            "stage_detected": stage_detected or stage, "section_detected": section_detected or section, **extra}
+
+
+def registered(file_id, sha, stage, section, **extra):
+    """Строка реестра нового разбора: стадия и раздел угаданы или заданы инспектором."""
+    return {"file_id": file_id, "sha256": sha, "stage": stage, "section": section, **extra}
+
+
+def test_restaged():
+    """Стадия и раздел — не с угаданным по пути, а с прошлым разбором (задача #39, #60).
+
+    Раньше повторный разбор замечал только ручную стадию, отличную от угаданной: снятая правка
+    и правка к угаданному значению проходили незамеченными, а сравнение переносило записи
+    со старой стадией. Смена стадии или раздела — пересчёт всего объекта: у параметров могли
+    и появиться, и исчезнуть кандидаты.
+    """
+    before = [parsed("F1", "aa", "RD", "AR", stage_detected="PD"),     # ручная РД поверх угаданной ПД
+              parsed("F2", "bb", "ID", "OV", stage_detected="RD_ID_MIXED"),
+              parsed("F3", "cc", "PD", "KR")]
+    ok = True
+    removed = [registered("F1", "aa", "PD", "AR"), registered("F2", "bb", "ID", "OV"), registered("F3", "cc", "PD", "KR")]
+    full, fresh, why = incremental.plan(removed, before)
+    ok &= check("ручную стадию сняли — весь объект", full is True and fresh == {"F1", "F2", "F3"}
+                and "стадия или раздел" in why, why)
+    ok &= check("и документ назван один, хотя ручная стадия есть и у другого",
+                incremental.restaged(removed, before) == {"F1"})
+    same = [registered("F1", "aa", "RD", "AR"), registered("F2", "bb", "ID", "OV"), registered("F3", "cc", "PD", "KR")]
+    full, fresh, why = incremental.plan(same, before)
+    ok &= check("ручные стадии те же, что при прошлом разборе, — пересчитывать нечего",
+                full is False and fresh == set(), why)
+    section = [registered("F1", "aa", "RD", "AR"), registered("F2", "bb", "ID", "OV"), registered("F3", "cc", "PD", "AR")]
+    ok &= check("раздел поправлен — тоже весь объект", incremental.plan(section, before)[0] is True)
+
+    # пробелы заполнил разбор редакций: раздел OTHER стал OV, стадия UNKNOWN стала ID
+    filled = [parsed("F4", "dd", "RD_ID_MIXED", "OV", section_detected="OV"),
+              parsed("F5", "ee", "ID", "OTHER", stage_detected="ID", section_detected="OTHER")]
+    again = [registered("F4", "dd", "RD_ID_MIXED", "OTHER"), registered("F5", "ee", "UNKNOWN", "OTHER")]
+    ok &= check("найденное разбором редакций правкой не считается",
+                incremental.restaged(again, filled) == set(), str(incremental.restaged(again, filled)))
+    manual = [parsed("F6", "ff", "PD", "KR", stage_detected="RD")]
+    ok &= check("снятая ручная стадия там, где разбор найдёт другую, — правка",
+                incremental.restaged([registered("F6", "ff", "UNKNOWN", "KR")], manual) == {"F6"})
+
+    replaced = [registered("F1", "zz", "PD", "AR"), registered("F2", "bb", "ID", "OV"), registered("F3", "cc", "PD", "KR")]
+    full, fresh, _ = incremental.plan(replaced, before)
+    ok &= check("заменённый документ считается как новый, не как правка стадии",
+                full is False and fresh == {"F1"} and incremental.restaged(replaced, before) == set(), str(fresh))
+    copies = before + [parsed("F3", "cc", "PD", "KR", relative_path="копия/Том 4.pdf", duplicate_of="F3"),
+                       parsed("U0001", None, "UNKNOWN", "OTHER")]
+    now = same + [registered("F3", "cc", "RD", "KR", relative_path="копия/Том 4.pdf", duplicate_of="F3"),
+                  registered("U0001", None, "PD", "OTHER")]
+    ok &= check("копии и файлы без разбора не сравниваются", incremental.restaged(now, copies) == set())
+    return ok
+
+
 def test_chain_guard():
     """Новая редакция прежнего документа меняет значения у параметров, которых не упоминает."""
     with_revision = docs(("F1", "aa", "PD", "c1"), ("F2", "bb", "RD", "c2"), ("F3", "cc", "RD", "c2"))
@@ -135,6 +193,7 @@ def test_candidate_cache_values():
 def main():
     ok = True
     for title, fn in (("Что изменилось", test_what_changed),
+                      ("Стадия и раздел с прошлого разбора", test_restaged),
                       ("Цепочки редакций", test_chain_guard),
                       ("Перенос строк разбора", test_rows_kept_and_merged),
                       ("Какие параметры затронуты", test_affected_codes),

@@ -804,7 +804,8 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
           "Задача #39: на чужом оформлении папок стадия угадывается неверно, и документ выпадает " +
           "из сравнения. Инспектор задаёт стадию (и при необходимости раздел) до сравнения; разбор " +
           "заданное руками не перезаписывает. Правка попадает в журнал аудита. Чтобы она попала " +
-          "в протокол, после правок нужен повторный разбор: POST /api/v1/process/{id}/start.",
+          "в протокол, после правок нужен повторный разбор: POST /api/v1/process/{id}/start. " +
+          "Снятая правка оставляет стадию (раздел) пустой до повторного разбора, затем её определяет разбор.",
         params: {
           type: "object",
           required: ["id", "fileId"],
@@ -813,8 +814,8 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         body: {
           type: "object",
           properties: {
-            doc_stage: { type: "string", enum: [...DOC_STAGES, ""], description: "пустая строка снимает правку" },
-            section: { type: "string", enum: [...DOC_SECTIONS, ""] },
+            doc_stage: { type: "string", enum: [...DOC_STAGES, ""], description: "пустая строка снимает правку: стадию снова определит разбор" },
+            section: { type: "string", enum: [...DOC_SECTIONS, ""], description: "пустая строка снимает правку: раздел снова определит разбор" },
             comment: { type: "string", maxLength: 1000 },
           },
           additionalProperties: false,
@@ -844,13 +845,21 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         const stage = doc_stage === undefined ? file.stage_manual : doc_stage || null;
         const sect = section === undefined ? file.section_manual : section || null;
         const { rows: updated } = await db.query(
-          // время правки двигается, только если значение изменилось: повторный выбор того же
-          // значения не делает файл «правкой после сборки протокола» в окне финализации
-          `update files set manual_by = $4,
+          // Кто и когда правил, меняется, только если ручное значение изменилось: повторный выбор того же
+          // значения не делает файл «правкой после сборки протокола» в окне финализации, а пустой выбор
+          // у файла без ручной правки не выдаёт его стадию за заданную вручную. Снятая правка возвращает
+          // стадию и раздел разбору: ручное значение было записано и в doc_stage (discipline), поэтому
+          // до повторного разбора они пусты, а не показывают снятое значение как действующее
+          `update files set
+                  manual_by = case when stage_manual is not distinct from $2 and section_manual is not distinct from $3
+                                   then manual_by else $4 end,
                   manual_at = case when stage_manual is not distinct from $2 and section_manual is not distinct from $3
                                    then manual_at else now() end,
                   stage_manual = $2, section_manual = $3,
-                  doc_stage = coalesce($2, doc_stage), discipline = coalesce($3, discipline)
+                  doc_stage = case when $2::text is null and stage_manual is not null then null
+                                   else coalesce($2, doc_stage) end,
+                  discipline = case when $3::text is null and section_manual is not null then null
+                                    else coalesce($3, discipline) end
            where id = $1
            returning relative_path, file_id, doc_stage, discipline, stage_manual, section_manual, manual_by, manual_at`,
           [file.id, stage, sect, request.user.sub],

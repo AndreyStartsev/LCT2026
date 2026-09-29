@@ -38,6 +38,27 @@ const stageOf = (f: FileItem) => (f.doc_stage && f.doc_stage !== "UNKNOWN" ? f.d
 const sectionOf = (f: FileItem) => (f.discipline && f.discipline !== "OTHER" ? f.discipline : "");
 
 /**
+ * Пустая стадия или раздел. «Не определена» — разбор не смог определить. «По разбору» — значения
+ * ещё нет, его даст разбор: файл не разобран или ручной выбор снят (до повторного разбора стадия
+ * и раздел такого файла пусты). Тем же вариантом ручной выбор и снимается.
+ */
+const noStage = (f: FileItem) => (f.status === "ACCEPTED" && !f.doc_stage ? "по разбору" : "не определена");
+const noSection = (f: FileItem) => (f.status === "ACCEPTED" && !f.discipline ? "по разбору" : "не определён");
+
+/**
+ * Откуда стадия и раздел файла. Ручной выбор — с тем, кто и когда его сделал. Снятый выбор виден,
+ * пока протокол не пересобран; после пересборки стадия и раздел снова от разбора.
+ */
+function stageNote(f: FileItem, editedAfterBuild: boolean): string {
+  const who = f.manual_by ? `: ${f.manual_by} · ${when(f.manual_at ?? null)}` : "";
+  if (f.stage_manual && f.section_manual) return `стадия и раздел заданы вручную${who}`;
+  if (f.stage_manual) return `стадия задана вручную${who}`;
+  if (f.section_manual) return `раздел задан вручную${who}`;
+  if (f.manual_by && editedAfterBuild) return `ручной выбор снят${who}`;
+  return "стадия по названиям папок";
+}
+
+/**
  * Раздел проекта есть у проектной и рабочей документации; у исполнительной его не бывает —
  * акт освидетельствования или протокол испытаний не относится к АР или ОВ. Поэтому в отбор
  * «без раздела» попадают только те файлы, которым раздел действительно нужен: правила
@@ -76,6 +97,9 @@ export default function FilesPane({
   // Правки новее сборки протокола — по времени правки, а не по флажку экрана: флажок
   // пропадал при уходе в карточку, а правка так и не входила в протокол (п. 11).
   const waiting = useMemo(() => new Set(pendingEdits(files, builtAt).map((f) => f.relative_path)), [files, builtAt]);
+  // стадия или раздел правлены после сборки протокола — по тому же времени правки, что и у pendingEdits
+  const built = builtAt ? Date.parse(builtAt) : NaN;
+  const stageEditedAfterBuild = (f: FileItem) => !!f.manual_at && Date.parse(f.manual_at) > built;
 
   // цепочки из нескольких редакций: файлы с общим chain_id (#10)
   const chainSize = useMemo(() => {
@@ -189,7 +213,7 @@ export default function FilesPane({
             </p>
             <p className="lede">
               Задайте стадию здесь: правка идёт в <Journal />, разбор её не перезаписывает и учтёт при повторном
-              разборе — кнопка под таблицей.
+              разборе — кнопка под таблицей. Вариант «по разбору» снимает ручной выбор.
             </p>
           </div>
         )}
@@ -281,10 +305,8 @@ export default function FilesPane({
                           <>
                             <span className="tag">{f.reject_code}</span> {f.reject_message}
                           </>
-                        ) : f.manual_by ? (
-                          `стадия задана вручную: ${f.manual_by} · ${when(f.manual_at ?? null)}`
                         ) : (
-                          "стадия по названиям папок"
+                          stageNote(f, stageEditedAfterBuild(f))
                         )}
                         {waiting.has(f.relative_path) && (
                           <>
@@ -299,17 +321,21 @@ export default function FilesPane({
                     <td>
                       {rejected || !editable ? (
                         <span className={stageOf(f) ? "mono small" : "mono small absent"}>
-                          {stageOf(f) ? STAGE_LABEL[stageOf(f)] ?? f.doc_stage : "не определена"}
+                          {stageOf(f) ? STAGE_LABEL[stageOf(f)] ?? f.doc_stage : noStage(f)}
                         </span>
                       ) : (
                         <select
                           className="pick"
                           aria-label={`Стадия файла ${f.relative_path}`}
-                          value={stageOf(f)}
+                          value={f.stage_manual || stageOf(f)}
                           disabled={busy || saving === key}
                           onChange={(e) => set(f, { doc_stage: e.target.value })}
                         >
-                          <option value="">не определена</option>
+                          {/* Пустой вариант у ручного значения — «по разбору», он снимает выбор. У стадии,
+                              которую разбор определил сам, снимать нечего: пустого варианта нет. */}
+                          {(f.stage_manual || !stageOf(f)) && (
+                            <option value="">{f.stage_manual ? "по разбору" : noStage(f)}</option>
+                          )}
                           {DOC_STAGES.map((s) => (
                             <option key={s.code} value={s.code}>
                               {s.label}
@@ -320,16 +346,18 @@ export default function FilesPane({
                     </td>
                     <td>
                       {rejected || !editable ? (
-                        <span className="mono small">{sectionOf(f) || "не определён"}</span>
+                        <span className="mono small">{sectionOf(f) || noSection(f)}</span>
                       ) : (
                         <select
                           className="pick"
                           aria-label={`Раздел файла ${f.relative_path}`}
-                          value={sectionOf(f)}
+                          value={f.section_manual || sectionOf(f)}
                           disabled={busy || saving === key}
                           onChange={(e) => set(f, { section: e.target.value })}
                         >
-                          <option value="">не определён</option>
+                          {(f.section_manual || !sectionOf(f)) && (
+                            <option value="">{f.section_manual ? "по разбору" : noSection(f)}</option>
+                          )}
                           {DOC_SECTIONS.map((s) => (
                             <option key={s.code} value={s.code}>
                               {s.label}

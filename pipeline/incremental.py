@@ -13,7 +13,9 @@
 
 Что считается изменившимся документом: тот, которого в прошлом разборе не было, или тот,
 у которого другое содержимое (SHA-256). Пропавший документ тоже меняет объект: у
-параметра могли исчезнуть кандидаты, поэтому при пропаже считается всё заново.
+параметра могли исчезнуть кандидаты, поэтому при пропаже считается всё заново. Так же —
+при смене стадии или раздела документа с прошлого разбора (`restaged`): содержимое то же,
+а кандидаты у параметров могли и появиться, и исчезнуть.
 
 Полный пересчёт нужен и тогда, когда изменились сами правила или версия конвейера:
 перенос прежних записей обещал бы, что они посчитаны по новым правилам, а это неправда.
@@ -34,6 +36,35 @@ def lost_files(documents, previous):
     return {d["file_id"] for d in (previous or []) if d.get("file_id") not in now}
 
 
+def restaged(documents, previous):
+    """Документы прежнего содержимого, у которых стадия или раздел не те, что при прошлом разборе.
+
+    Стадию и раздел правит инспектор (#39): задаёт, меняет, снимает правку, выбирает значение,
+    равное угаданному по пути. Сравнивается с итогом прошлого разбора, а не с угаданным:
+    ручная стадия, которая стоит с прошлого разбора, ничего не меняет, а снятая — меняет.
+
+    В итоге прошлого разбора пустую стадию и раздел OTHER заполнил найденным разбор редакций
+    (`revisions.analyse` трогает только пробелы). Текущие значения заполняются тем же найденным,
+    иначе такой документ считался бы поправленным на каждом разборе: у Новослободской это
+    51 документ из 126. Копии (`duplicate_of`) и файлы без разбора (без SHA-256) не сравниваются:
+    их не читают ни разбор, ни правила.
+    """
+    was = {d["file_id"]: d for d in previous or [] if d.get("sha256") and not d.get("duplicate_of")}
+    out = set()
+    for d in documents:
+        p = was.get(d.get("file_id"))
+        if p is None or d.get("duplicate_of") or p.get("sha256") != d.get("sha256"):
+            continue            # новый или заменённый документ считается и так
+        stage, section = d.get("stage"), d.get("section")
+        if stage in (None, "", "UNKNOWN") and p.get("stage_detected") not in (None, "UNKNOWN"):
+            stage = p["stage_detected"]
+        if section in (None, "", "OTHER") and p.get("section_detected") not in (None, "OTHER"):
+            section = p["section_detected"]
+        if (stage, section) != (p.get("stage"), p.get("section")):
+            out.add(d["file_id"])
+    return out
+
+
 def plan(documents, previous):
     """Что пересчитывать: (пересчитывать всё, идентификаторы документов, причина).
 
@@ -45,6 +76,9 @@ def plan(documents, previous):
     lost = lost_files(documents, previous)
     if lost:
         return True, {d["file_id"] for d in documents}, f"документов не стало: {len(lost)}"
+    moved = restaged(documents, previous)
+    if moved:
+        return True, {d["file_id"] for d in documents}, f"стадия или раздел изменены, документов: {len(moved)}"
     changed = changed_files(documents, previous)
     if not changed:
         return False, set(), "новых документов нет"

@@ -72,6 +72,11 @@ def main():
     ok &= check("способ тот же, дозагружен документ — читается только он", not full and fresh == {"C"}, why)
     full, fresh, why = plan(OBJ, DOCS, DOCS, {"B"}, "model")
     ok &= check("стадию поправил инспектор — документ перечитывается", not full and fresh == {"B"}, why)
+    was = [dict(DOCS[0], stage="ID"), dict(DOCS[1], stage="RD")]
+    now = [dict(DOCS[0], stage="ID"), dict(DOCS[1], stage="PD")]
+    full, fresh, why = plan(OBJ, now, was, {"A"}, "model")
+    ok &= check("у B сняли ручную стадию, у A ручная стоит с прошлого разбора — весь объект",
+                full and fresh == {"A", "B"} and "стадия или раздел" in why, why)
     full, fresh, why = plan(OBJ, DOCS[:1], DOCS, set(), "model")
     ok &= check("документа не стало — весь объект, как раньше", full and "не стало" in why, why)
 
