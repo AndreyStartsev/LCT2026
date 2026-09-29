@@ -710,7 +710,7 @@ export default function VerificationScreen({
           </div>
         </div>
         <div className="head-actions">
-          <Tip text="Выгрузить: протокол в PDF, DOCX, JSON или XML и файл сдачи организатору">
+          <Tip text="Выгрузить: протокол в PDF, DOCX, JSON или XML и файл сдачи">
           <details className="menu">
             <summary className={`btn btn-icon${hasProtocol ? "" : " disabled"}`} aria-disabled={!hasProtocol} aria-label="Выгрузить">
               <HeadIcon name="export" />
@@ -730,7 +730,7 @@ export default function VerificationScreen({
                   Протокол, XML
                 </button>
                 <button type="button" role="menuitem" onClick={() => exportAs("submission")}>
-                  Файл сдачи организатору, JSON
+                  Файл сдачи, JSON
                 </button>
               </div>
             )}

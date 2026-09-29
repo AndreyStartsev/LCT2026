@@ -142,7 +142,7 @@ export function protocolBlocks(report: ProtocolReport): Block[] {
   const sub = u.submission as Record<string, number> | null;
   if (sub) {
     kv([
-      ["Файл сдачи организатору", `записей ${dash(sub.checks)}; убрано отклонённых ${dash(sub.removed)}, ` +
+      ["Файл сдачи", `записей ${dash(sub.checks)}; убрано отклонённых ${dash(sub.removed)}, ` +
         `добавлено подтверждённых гипотез ${dash(sub.added)}, без решения ${dash(sub.undecided)}`],
     ], 8);
   }

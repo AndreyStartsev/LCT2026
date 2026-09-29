@@ -51,7 +51,7 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         description:
           "Последняя версия протокола или указанная в version. Прежние версии сохраняются: " +
           "дозагрузка пересобирает протокол с новым номером версии. Файл собирается по решениям " +
-          "инспектора на момент запроса (#63): отклонённая запись в него не идёт, подтверждённая " +
+          "инспектора на момент запроса: отклонённая запись в него не идёт, подтверждённая " +
           "гипотеза свободного поиска идёт, записи без решения остаются. Сколько убрано, добавлено " +
           "и осталось без решения — в заголовках X-Checks-Rejected, X-Checks-Promoted, X-Checks-Undecided.",
         params: idParams,
@@ -223,12 +223,12 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
                     discipline: { type: "string", nullable: true },
                     pdf_pages: { type: "integer", nullable: true },
                     uploaded_at: { type: "string", format: "date-time" },
-                    stage_manual: { type: "string", nullable: true, description: "стадия, заданная инспектором (#39)" },
+                    stage_manual: { type: "string", nullable: true, description: "стадия, заданная инспектором" },
                     section_manual: { type: "string", nullable: true },
                     manual_by: { type: "string", nullable: true },
                     manual_at: { type: "string", format: "date-time", nullable: true },
                     document_code: { type: "string", nullable: true },
-                    revision: { type: "string", nullable: true, description: "отметка редакции из имени файла или штампа (#10)" },
+                    revision: { type: "string", nullable: true, description: "отметка редакции из имени файла или штампа" },
                     chain_id: { type: "string", nullable: true, description: "цепочка редакций: общий у редакций одного документа" },
                     revision_status: {
                       type: "string", nullable: true,
@@ -315,8 +315,8 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         tags: ["process"],
         summary: "Что изменилось между редакциями: указатель",
         description:
-          "Пары «прежняя → следующая редакция» из цепочек редакций (#10) и их страницы без подробностей " +
-          "(#19, #81): статус страницы, изменилось ли содержание и отмечено ли изменение. По указателю " +
+          "Пары «прежняя → следующая редакция» из цепочек редакций и их страницы без подробностей: " +
+          "статус страницы, изменилось ли содержание и отмечено ли изменение. По указателю " +
           "реестр файлов показывает, что изменилось, а карточка находки — менялся ли лист доказательства. " +
           "Подробности пары — GET /api/v1/process/{id}/files/{fileId}/changes.",
         params: idParams,
@@ -379,7 +379,7 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         tags: ["process"],
         summary: "Что изменилось в этой редакции относительно предыдущей",
         description:
-          "Пара редакций, где файл — новая редакция (#19, #81): страницы с тем, что изменилось, где на листе " +
+          "Пара редакций, где файл — новая редакция: страницы с тем, что изменилось, где на листе " +
           "(place.zones_old и place.zones_new — рамки в долях видимой страницы, Y сверху, как highlights " +
           "доказательств) и отмечено ли изменение (registration: REGISTERED — номер нового изменения в штампе " +
           "листа или в ведомости, UNREGISTERED — лист изменён без отметки, NOT_NEEDED — изменились только " +
@@ -453,7 +453,7 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         tags: ["process"],
         summary: "Назвать файл актуальной редакцией своей цепочки",
         description:
-          "Задача #10, ТЗ 9.1: конфликт редакций система не решает, а отдаёт инспектору. " +
+          "ТЗ 9.1: конфликт редакций система не решает, а отдаёт инспектору. " +
           "Инспектор называет актуальную редакцию; у остальных файлов той же цепочки выбор снимается. " +
           "Правка идёт в журнал аудита (FILE_REVISION_SET). Чтобы она попала в сравнение, после правок " +
           "нужен повторный разбор: POST /api/v1/process/{id}/start.",
@@ -585,7 +585,7 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         description:
           "Текст страниц файла в том виде, в каком его читали правила: у каждой страницы сказано, " +
           "чем она прочитана — текстовым слоем, распознаванием (TESSERACT) или моделью, — и какого " +
-          "она вида. На сканах текст даёт распознавание, и по нему принимаются решения (#52), " +
+          "она вида. На сканах текст даёт распознавание, и по нему принимаются решения, " +
           "поэтому инспектор должен видеть его целиком, а не только в цитате доказательства. " +
           "Страницы отдаются по порядку, окном: from — номер первой страницы окна, limit — сколько.",
         params: {
@@ -801,7 +801,7 @@ export async function processRoutes(app: FastifyInstance): Promise<void> {
         tags: ["process"],
         summary: "Задать стадию и раздел файла руками",
         description:
-          "Задача #39: на чужом оформлении папок стадия угадывается неверно, и документ выпадает " +
+          "На чужом оформлении папок стадия угадывается неверно, и документ выпадает " +
           "из сравнения. Инспектор задаёт стадию (и при необходимости раздел) до сравнения; разбор " +
           "заданное руками не перезаписывает. Правка попадает в журнал аудита. Чтобы она попала " +
           "в протокол, после правок нужен повторный разбор: POST /api/v1/process/{id}/start. " +

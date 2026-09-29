@@ -1091,7 +1091,7 @@ def step_protocol(conn, process):
                              .get("excluded_by_origin") or []) if row.get("finding_id")}
     errors = submission.validate(body)
     if errors:
-        raise RuntimeError(f"протокол не проходит схему сдачи организатора: {errors[:3]}")
+        raise RuntimeError(f"протокол не проходит схему файла сдачи: {errors[:3]}")
     enrich_evidence(process, findings)
     render_revision_evidence(conn, process, findings)
     previous = {

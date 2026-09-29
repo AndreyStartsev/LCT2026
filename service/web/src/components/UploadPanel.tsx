@@ -310,7 +310,7 @@ export default function UploadPanel({ limits, objects, processId, title, submitL
       <header className="upload-head">
         <div>
           <p className="lede">
-            Выберите папку объекта целиком: стадия документа определяется по пути и по реестру организатора.
+            Выберите папку объекта целиком: стадия документа определяется по пути и по реестру документов.
             Файлы принимаются в форматах {limits.formats.join(", ")}, до {limits.max_file_mb} МБ каждый; папка
             уходит пакетами до {limits.max_package_mb} МБ.
           </p>
@@ -350,7 +350,7 @@ export default function UploadPanel({ limits, objects, processId, title, submitL
             <small>
               {known
                 ? `Объект уже проверялся: будет создан новый процесс (${known.processes} было).`
-                : "Для объектов организатора укажите их идентификатор: с ним протокол сопоставим с эталоном. Пусто — присвоится автоматически."}
+                : "Для объектов с эталонной разметкой укажите их идентификатор: с ним протокол сопоставим с эталоном. Пусто — присвоится автоматически."}
             </small>
           </label>
           <label className="field">

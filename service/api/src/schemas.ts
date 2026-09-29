@@ -78,7 +78,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
       reading_models: {
         type: "array",
         description:
-          "Модели для способа чтения «модель» (#54): инспектор выбирает одну при загрузке. " +
+          "Модели для способа чтения «модель»: инспектор выбирает одну при загрузке. " +
           "Пустой список — выбор не предлагается, работает модель сервиса",
         items: {
           type: "object",
@@ -164,7 +164,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
       reading_mode: {
         ...nullableString,
         description:
-          `Способ чтения объекта, выбранный при загрузке (#54), одно из ${READING_MODES.join(", ")}: ` +
+          `Способ чтения объекта, выбранный при загрузке, одно из ${READING_MODES.join(", ")}: ` +
           "layer — только текстовый слой, " +
           "tesseract — слой и распознавание сканов, model — слой, распознавание и модель. " +
           "null — читается способом сервиса",
@@ -172,7 +172,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
       model_name: {
         ...nullableString,
         description:
-          "Модель, выбранная при загрузке для режима «модель» (#54); null — модель сервиса. " +
+          "Модель, выбранная при загрузке для режима «модель»; null — модель сервиса. " +
           "Чем объект прочитан на самом деле, видно в readiness.model_name после разбора",
       },
       processing: { $ref: "Processing#" },
@@ -233,9 +233,9 @@ export const sharedSchemas: Record<string, unknown>[] = [
         nullable: true,
         additionalProperties: true,
         description:
-          "Готовность объекта (#39): pages, pages_without_text, share_without_text, stage_unknown, " +
+          "Готовность объекта: pages, pages_without_text, share_without_text, stage_unknown, " +
           "section_other, unsupported, pages_low_quality, ocr_enabled, model_enabled, by_text_source, " +
-          "reading_mode и model_name — чем объект прочитан на самом деле (#54). " +
+          "reading_mode и model_name — чем объект прочитан на самом деле. " +
           "Считается при разборе, лежит в отчёте протокола",
       },
       recompute: {
@@ -243,7 +243,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
         nullable: true,
         additionalProperties: true,
         description:
-          "Что пересчитано при последней обработке, а что перенесено из прошлой версии (#60): " +
+          "Что пересчитано при последней обработке, а что перенесено из прошлой версии: " +
           "full, reason, documents_read, documents_total, recomputed, carried_over. " +
           "Дозагрузка пересчитывает только параметры, которых коснулись новые документы",
       },
@@ -274,7 +274,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
     $id: "Protocol",
     type: "object",
     description:
-      "Протокол в формате сдачи организатора (contracts/submission.schema.json). " +
+      "Протокол в формате файла сдачи (contracts/submission.schema.json). " +
       "Записи несут и дополнительные поля проекции: matrix_scope, comparison_result, " +
       "parameter_id, location_type, document_status.",
     required: ["object_id", "checks"],
@@ -336,12 +336,12 @@ export const sharedSchemas: Record<string, unknown>[] = [
       criticality: nullableString,
       pd_value: nullableString,
       rd_value: nullableString,
-      id_value: { ...nullableString, description: "Значение исполнительной документации (#42)" },
-      id_check: { ...nullableString, description: "Итог сверки с исполнительной документацией (#42)" },
+      id_value: { ...nullableString, description: "Значение исполнительной документации" },
+      id_check: { ...nullableString, description: "Итог сверки с исполнительной документацией" },
       sources: {
         type: "object",
         description:
-          "Чем прочитано значение стороны и к чему привязано (#41): text_source RECOGNIZED — распознано машиной " +
+          "Чем прочитано значение стороны и к чему привязано: text_source RECOGNIZED — распознано машиной " +
           "(Tesseract или модель); binding CLAUSE — из указаний, SHEET — с листа чертежа, PAGE — со страницы, PATH — по пути файла",
         properties: {
           pd: sideSourceSchema,
@@ -351,26 +351,26 @@ export const sharedSchemas: Record<string, unknown>[] = [
       },
       needs_expert: {
         type: "boolean",
-        description: "Система не решает сама (#41): распознанное значение, расхождение со слоем, замена марки — решает инспектор",
+        description: "Система не решает сама: распознанное значение, расхождение со слоем, замена марки — решает инспектор",
       },
       value_read_by: {
         type: "object",
-        description: "RECOGNIZED у стороны, значение которой прочитано машиной, а не текстовым слоем (#52)",
+        description: "RECOGNIZED у стороны, значение которой прочитано машиной, а не текстовым слоем",
         properties: { pd: nullableString, rd: nullableString, id: nullableString },
       },
       finding_status: {
         ...nullableString,
         description:
-          "Статус по легенде организатора к Матрице с учётом решения инспектора (#80): CANDIDATE, CONFIRMED_VIOLATION, " +
+          "Статус по легенде к Матрице с учётом решения инспектора: CANDIDATE, CONFIRMED_VIOLATION, " +
           "NEGATIVE_VERIFIED, CLARIFICATION_REQUIRED, MISSING_EVIDENCE, NOT_COMPARABLE, SUSPICION",
       },
       specialist: {
         type: "object",
         nullable: true,
         description:
-          "Решение специалиста (#129, Р-86, Р-108): violation — подтверждено нарушением, need_info — специалисту не " +
+          "Решение специалиста: violation — подтверждено нарушением, need_info — специалисту не " +
           "хватило данных, no_violation — не нарушение, hypothesis — вид показывать гипотезой, drop — специалист решил вид " +
-          "не показывать (по решению пользователя такие записи видны в конце таблицы гипотез; как исполнено — в note). scope — к чему " +
+          "не показывать (такие записи видны в конце таблицы гипотез; как исполнено — в note). scope — к чему " +
           "решение: kind — к виду гипотезы, record — к этой записи с теми значениями, которые видел специалист",
         required: ["verdict"],
         properties: {
@@ -385,7 +385,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
         type: "object",
         nullable: true,
         description:
-          "Уверенность в выводе (#80): уровень — для отбора, и признаки, из которых он сложен. Процента нет: " +
+          "Уверенность в выводе: уровень — для отбора, и признаки, из которых он сложен. Процента нет: " +
           "уровень выводится из признаков записи и показывается вместе с ними. HIGH — признаков сомнения нет, " +
           "MEDIUM — вывод опирается на то, что стоит проверить глазами (прочитано машиной, взято с листа, " +
           "соперничающее значение), LOW — система не решает сама. null — сравнения не было",
@@ -409,7 +409,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
       provisional: {
         type: "boolean",
         description:
-          "Находка черновика правила (#95): параметр без правила прода проверен черновиком, который ждёт решения " +
+          "Находка черновика правила: параметр без правила прода проверен черновиком, который ждёт решения " +
           "специалиста. Как гипотеза свободного поиска — вне итогов, пока инспектор не взял её в кандидаты",
       },
       detail: nullableString,
@@ -418,7 +418,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
       carried_from_version: {
         ...nullableInt,
         description:
-          "Запись перенесена из этой версии протокола (#60): дозагруженные документы её не касались, " +
+          "Запись перенесена из этой версии протокола: дозагруженные документы её не касались, " +
           "значения и решение инспектора относятся к тому разбору. null — запись пересчитана сейчас",
       },
       parent_finding_id: nullableString,
@@ -460,7 +460,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
       disputed_at: {
         ...nullableDateTime,
         description:
-          "Когда инспектор вернул в кандидаты запись, проверенную автоматически без нарушения (#74): " +
+          "Когда инспектор вернул в кандидаты запись, проверенную автоматически без нарушения: " +
           "она снова ждёт решения и переживает пересборку протокола",
       },
       disputed_by: nullableString,
@@ -471,7 +471,7 @@ export const sharedSchemas: Record<string, unknown>[] = [
           "page_count; preview.aspect — пропорции страницы; highlights — прямоугольники места во внутренней " +
           "системе координат (доли видимой страницы, Y сверху) и highlight_source — чем место найдено " +
           "(VALUE, ROWS, LOCATION, FINDING — место указано самой находкой, REVISION — места, где лист изменился " +
-          "между редакциями, #81). Пустой highlights при localization " +
+          "между редакциями). Пустой highlights при localization " +
           "PAGE_LEVEL или DOCUMENT_LEVEL означает, что доказательство относится к странице или документу целиком " +
           "и обводить нечего; при BBOX — что место на странице не найдено.",
         items: { type: "object", additionalProperties: true },
